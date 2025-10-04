@@ -67,7 +67,7 @@ const artworkSchema = new mongoose.Schema({
   }
 }, {
   timestamps: true
-});
+})
 
 // Indexes for better performance
 artworkSchema.index({ title: 'text', description: 'text', tags: 'text' });

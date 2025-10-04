@@ -2,6 +2,7 @@ import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import recommendationsRouter from './routes/recommendations.js'; 
 
 dotenv.config();
 
@@ -389,3 +390,5 @@ connectDB().then(() => {
     console.log(`🗄️  Database: ${mongoose.connection.readyState === 1 ? 'Connected ✅' : 'Mock Data 🔄'}`);
   });
 });
+
+app.use('/api/v1/users', recommendationsRouter); 
