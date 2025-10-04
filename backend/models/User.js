@@ -1,14 +1,11 @@
 import mongoose from 'mongoose';
-import bcrypt from 'bcryptjs';
 
 const userSchema = new mongoose.Schema({
-  username: {
+  // Clerk authentication fields
+  clerkUserId: {
     type: String,
-    required: [true, 'Username is required'],
-    unique: true,
-    trim: true,
-    minlength: [3, 'Username must be at least 3 characters'],
-    maxlength: [30, 'Username cannot exceed 30 characters']
+    required: [true, 'Clerk User ID is required'],
+    unique: true
   },
   email: {
     type: String,
@@ -18,10 +15,13 @@ const userSchema = new mongoose.Schema({
     lowercase: true,
     match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email']
   },
-  password: {
+  username: {
     type: String,
-    required: [true, 'Password is required'],
-    minlength: [6, 'Password must be at least 6 characters']
+    required: [true, 'Username is required'],
+    unique: true,
+    trim: true,
+    minlength: [3, 'Username must be at least 3 characters'],
+    maxlength: [30, 'Username cannot exceed 30 characters']
   },
   firstName: {
     type: String,
@@ -37,19 +37,38 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  
+  // Additional profile fields
   bio: {
     type: String,
-    maxlength: [500, 'Bio cannot exceed 500 characters']
+    maxlength: [500, 'Bio cannot exceed 500 characters'],
+    default: ''
   },
   website: {
     type: String,
-    trim: true
+    trim: true,
+    default: ''
   },
   socialLinks: {
-    twitter: String,
-    instagram: String,
-    behance: String
+    twitter: {
+      type: String,
+      default: ''
+    },
+    instagram: {
+      type: String,
+      default: ''
+    },
+    behance: {
+      type: String,
+      default: ''
+    },
+    dribbble: {
+      type: String,
+      default: ''
+    }
   },
+  
+  // Role and status
   role: {
     type: String,
     enum: ['user', 'artist', 'admin'],
@@ -59,6 +78,12 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  isActive: {
+    type: Boolean,
+    default: true
+  },
+  
+  // User statistics
   stats: {
     artworksCount: {
       type: Number,
@@ -79,8 +104,14 @@ const userSchema = new mongoose.Schema({
     totalViews: {
       type: Number,
       default: 0
+    },
+    collectionsCount: {
+      type: Number,
+      default: 0
     }
   },
+  
+  // User preferences
   preferences: {
     emailNotifications: {
       type: Boolean,
@@ -89,27 +120,96 @@ const userSchema = new mongoose.Schema({
     publicProfile: {
       type: Boolean,
       default: true
+    },
+    showSocialLinks: {
+      type: Boolean,
+      default: true
+    },
+    allowMessages: {
+      type: Boolean,
+      default: true
     }
+  },
+  
+  // Clerk metadata
+  clerkData: {
+    lastSignInAt: Date,
+    externalAccounts: [{
+      provider: String,
+      providerUserId: String
+    }]
   }
 }, {
   timestamps: true
 });
 
-// Hash password before saving
-userSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) return next();
-  this.password = await bcrypt.hash(this.password, 12);
-  next();
-});
-
-// Compare password method
-userSchema.methods.correctPassword = async function(candidatePassword, userPassword) {
-  return await bcrypt.compare(candidatePassword, userPassword);
-};
-
 // Virtual for full name
 userSchema.virtual('fullName').get(function() {
-  return `${this.firstName} ${this.lastName}`.trim();
+  if (this.firstName && this.lastName) {
+    return `${this.firstName} ${this.lastName}`.trim();
+  }
+  return this.username;
 });
+
+// Virtual for display name (falls back to username)
+userSchema.virtual('displayName').get(function() {
+  if (this.firstName) {
+    return this.firstName;
+  }
+  return this.username;
+});
+
+// Method to update stats
+userSchema.methods.updateStats = async function() {
+  const Artwork = mongoose.model('Artwork');
+  const artworkCount = await Artwork.countDocuments({ userId: this._id });
+  
+  this.stats.artworksCount = artworkCount;
+  await this.save();
+};
+
+// Method to get public profile (excludes sensitive data)
+userSchema.methods.toPublicJSON = function() {
+  const userObject = this.toObject();
+  
+  // Remove sensitive fields
+  delete userObject.clerkData;
+  delete userObject.preferences;
+  delete userObject.__v;
+  
+  return userObject;
+};
+
+// Static method to find by Clerk ID
+userSchema.statics.findByClerkId = function(clerkUserId) {
+  return this.findOne({ clerkUserId });
+};
+
+// Static method to find or create from Clerk data
+userSchema.statics.findOrCreateFromClerk = async function(clerkUser) {
+  let user = await this.findOne({ clerkUserId: clerkUser.id });
+  
+  if (!user) {
+    user = new this({
+      clerkUserId: clerkUser.id,
+      email: clerkUser.primaryEmailAddress?.emailAddress,
+      username: clerkUser.username || clerkUser.primaryEmailAddress?.emailAddress.split('@')[0],
+      firstName: clerkUser.firstName,
+      lastName: clerkUser.lastName,
+      profileImage: clerkUser.profileImageUrl,
+      clerkData: {
+        lastSignInAt: clerkUser.lastSignInAt,
+        externalAccounts: clerkUser.externalAccounts?.map(acc => ({
+          provider: acc.provider,
+          providerUserId: acc.providerUserId
+        }))
+      }
+    });
+    
+    await user.save();
+  }
+  
+  return user;
+};
 
 export default mongoose.model('User', userSchema);
