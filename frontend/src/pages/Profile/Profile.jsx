@@ -9,7 +9,9 @@ const Profile = () => {
     artworks: 0,
     followers: 0,
     following: 0,
-    collections: 0
+    collections: 0,
+    totalLikes: 0,
+    totalViews: 0
   });
   const [recentArtworks, setRecentArtworks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -21,34 +23,45 @@ const Profile = () => {
   }, [isLoaded, user]);
 
   const fetchUserData = async () => {
-    try {
-      // Mock data - replace with actual API calls
-      setUserStats({
-        artworks: user?.publicMetadata?.artworksCount || 24,
-        followers: user?.publicMetadata?.followersCount || 1200,
-        following: user?.publicMetadata?.followingCount || 156,
-        collections: user?.publicMetadata?.collectionsCount || 8
-      });
+  try {
+    if (user) {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const userResponse = await fetch(`${backendUrl}/api/users/clerk/${user.id}`);
+      
+      if (userResponse.ok) {
+        const userData = await userResponse.json();
+        setUserStats({
+          artworks: userData.stats?.artworksCount || 0,
+          followers: userData.stats?.followersCount || 0,
+          following: userData.stats?.followingCount || 0,
+          collections: userData.stats?.collectionsCount || 0,
+          totalLikes: userData.stats?.totalLikes || 0,
+          totalViews: userData.stats?.totalViews || 0
+        });
+      }
 
-      setRecentArtworks([
-        { id: 1, title: "Digital Dreams", likes: "234", views: "1.2K" },
-        { id: 2, title: "Urban Nights", likes: "189", views: "987" },
-        { id: 3, title: "Nature's Call", likes: "312", views: "2.1K" },
-      ]);
-
-    } catch (error) {
-      console.error('Error fetching user data:', error);
-    } finally {
-      setLoading(false);
+      // Fetch user's artworks to calculate total views
+      const artworksResponse = await fetch(`${backendUrl}/api/artworks/user/${user.id}`);
+      if (artworksResponse.ok) {
+        const artworksData = await artworksResponse.json();
+        const totalViews = artworksData.artworks?.reduce((sum, art) => sum + (art.views || 0), 0) || 0;
+        setUserStats(prev => ({ ...prev, totalViews }));
+      }
     }
-  };
+  } catch (error) {
+    console.error('Error fetching user data:', error);
+  }
+};
 
-  const stats = [
-    { label: "Artworks", value: userStats.artworks, icon: "🖼️" },
-    { label: "Followers", value: userStats.followers.toLocaleString(), icon: "👥" },
-    { label: "Following", value: userStats.following, icon: "👤" },
-    { label: "Collections", value: userStats.collections, icon: "📚" },
-  ];
+// Update stats array to include total views
+const stats = [
+  { label: "Artworks", value: userStats.artworks, icon: "🖼️" },
+  { label: "Followers", value: userStats.followers.toLocaleString(), icon: "👥" },
+  { label: "Following", value: userStats.following, icon: "👤" },
+  { label: "Collections", value: userStats.collections, icon: "📚" },
+  { label: "Total Likes", value: userStats.totalLikes.toLocaleString(), icon: "❤️" },
+  { label: "Total Views", value: userStats.totalViews.toLocaleString(), icon: "👁️" },
+];
 
   // Get user initial for avatar fallback
   const getUserInitial = () => {

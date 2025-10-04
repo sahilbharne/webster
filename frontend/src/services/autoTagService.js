@@ -1,6 +1,8 @@
 const API_BASE_URL = 'http://localhost:3001/api';
 
 // Generate tags for an image
+
+
 export const autoTagImage = async (file, clerkUserId) => {
   const formData = new FormData();
   formData.append('image', file);
@@ -25,27 +27,23 @@ export const autoTagImage = async (file, clerkUserId) => {
   }
 };
 
+// Updated upload function
 export const uploadArtworkWithTags = async (artworkData, clerkUserId) => {
   const formData = new FormData();
   
+  // Append file and form data
   formData.append('image', artworkData.image);
   formData.append('title', artworkData.title);
-  formData.append('description', artworkData.description);
-  formData.append('category', artworkData.category);
-  formData.append('price', artworkData.price || 0);
+  formData.append('description', artworkData.description || '');
+  formData.append('category', artworkData.category || 'digital');
   formData.append('customTags', artworkData.customTags || '');
-  
-  // Add clerkUserId (required)
-  if (clerkUserId) {
-    formData.append('clerkUserId', clerkUserId);
-  } else {
-    throw new Error('clerkUserId is required for upload');
-  }
+  formData.append('clerkUserId', clerkUserId);
 
   try {
-    const response = await fetch('http://localhost:3001/api/upload-with-tags', {
+    const response = await fetch('http://localhost:3001/api/upload/with-tags', {
       method: 'POST',
       body: formData,
+      // Don't set Content-Type header - browser will set it with boundary
     });
 
     if (!response.ok) {

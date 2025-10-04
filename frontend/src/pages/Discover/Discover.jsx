@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useUser } from "@clerk/clerk-react";
-import { Link } from "react-router-dom";
 import { artworkAPI } from "../../utils/api";
+import { likeService } from "../../services/likeService";
+import { viewService } from "../../services/viewService";
 import "./Discover.css";
 
 const Discover = () => {
@@ -10,6 +11,11 @@ const Discover = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [likingArtwork, setLikingArtwork] = useState(null);
+  
+  // Modal state
+  const [selectedArtwork, setSelectedArtwork] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     fetchArtworks();
@@ -18,63 +24,158 @@ const Discover = () => {
   const fetchArtworks = async () => {
     try {
       setLoading(true);
-      console.log("🔄 Fetching artworks from API...");
       const response = await artworkAPI.getAll();
-      console.log("✅ API Response:", response);
-      console.log("📦 Response data:", response.data);
       
-      // Handle different response structures
       let artworksData = [];
-      
       if (Array.isArray(response.data)) {
-        // If response.data is directly an array
         artworksData = response.data;
       } else if (response.data && Array.isArray(response.data.artworks)) {
-        // If response.data has an artworks property
         artworksData = response.data.artworks;
       } else if (response.data && Array.isArray(response.data.data)) {
-        // If response.data has a data property
         artworksData = response.data.data;
-      } else {
-        // If it's an object or unexpected format
-        console.warn("⚠️ Unexpected API response format:", response.data);
-        artworksData = [];
       }
       
-      console.log("🎨 Processed artworks:", artworksData);
-      setArtworks(artworksData);
+      // If user is logged in, fetch like status for each artwork
+      if (user) {
+        const artworksWithLikeStatus = await Promise.all(
+          artworksData.map(async (artwork) => {
+            try {
+              const likeStatus = await likeService.getLikeStatus(artwork._id, user.id);
+              return {
+                ...artwork,
+                hasLiked: likeStatus.hasLiked,
+                likesCount: likeStatus.likesCount,
+                views: artwork.views || 0
+              };
+            } catch (error) {
+              console.error(`Error fetching like status for artwork ${artwork._id}:`, error);
+              return {
+                ...artwork,
+                hasLiked: false,
+                likesCount: artwork.likes ? artwork.likes.length : 0,
+                views: artwork.views || 0
+              };
+            }
+          })
+        );
+        setArtworks(artworksWithLikeStatus);
+      } else {
+        setArtworks(artworksData.map(artwork => ({
+          ...artwork,
+          hasLiked: false,
+          likesCount: artwork.likes ? artwork.likes.length : 0,
+          views: artwork.views || 0
+        })));
+      }
+      
       setError("");
     } catch (err) {
       console.error("❌ Error fetching artworks:", err);
       setError("Failed to load artworks. Using sample data.");
-      
-      // Fallback data
-      setArtworks([
-        {
-          _id: "1",
-          title: "Digital Dreams",
-          artistName: "Alex Chen",
-          description: "A beautiful digital artwork showcasing futuristic landscapes",
-          imageUrl: "https://images.unsplash.com/photo-1541961017774-22349e4a1262?w=400&h=300&fit=crop",
-          likes: 1200,
-          views: 2500
-        },
-        {
-          _id: "2",
-          title: "Sunset Mountains", 
-          artistName: "Nature Lover",
-          description: "A beautiful painting of mountains during sunset",
-          imageUrl: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop",
-          likes: 15,
-          views: 89
-        }
-      ]);
+      setArtworks([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Ensure artworks is always an array before filtering
+  const handleArtworkClick = async (artwork) => {
+    // Set the selected artwork and open modal
+    setSelectedArtwork(artwork);
+    setIsModalOpen(true);
+    
+    // Record view count
+    try {
+      if (user) {
+        await viewService.recordView(artwork._id, user.id);
+      } else {
+        await viewService.recordView(artwork._id);
+      }
+      
+      // Update local views count
+      updateLocalViews(artwork._id);
+      
+    } catch (error) {
+      console.error('Error recording view:', error);
+    }
+  };
+
+  const handleLike = async (artworkId, e) => {
+    if (e) e.stopPropagation(); // Prevent triggering artwork click
+    
+    if (!user) {
+      alert("Please sign in to like artworks");
+      return;
+    }
+
+    setLikingArtwork(artworkId);
+    
+    try {
+      const result = await likeService.toggleLike(artworkId, user.id);
+      
+      if (result.success) {
+        // Update local state for grid
+        setArtworks(prevArtworks => 
+          prevArtworks.map(artwork => 
+            artwork._id === artworkId 
+              ? { 
+                  ...artwork, 
+                  hasLiked: result.liked,
+                  likesCount: result.likes
+                } 
+              : artwork
+          )
+        );
+        
+        // Update modal artwork if it's the same one
+        if (selectedArtwork && selectedArtwork._id === artworkId) {
+          setSelectedArtwork(prev => ({
+            ...prev,
+            hasLiked: result.liked,
+            likesCount: result.likes
+          }));
+        }
+      }
+    } catch (error) {
+      console.error("Error liking artwork:", error);
+      alert("Failed to like artwork: " + error.message);
+    } finally {
+      setLikingArtwork(null);
+    }
+  };
+
+  const updateLocalViews = (artworkId) => {
+    setArtworks(prevArtworks => 
+      prevArtworks.map(artwork => 
+        artwork._id === artworkId 
+          ? { 
+              ...artwork, 
+              views: (artwork.views || 0) + 1 
+            } 
+          : artwork
+      )
+    );
+    
+    // Update modal artwork if it's the same one
+    if (selectedArtwork && selectedArtwork._id === artworkId) {
+      setSelectedArtwork(prev => ({
+        ...prev,
+        views: (prev.views || 0) + 1
+      }));
+    }
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setSelectedArtwork(null);
+  };
+
+  // Close modal when clicking outside
+  const handleBackdropClick = (e) => {
+    if (e.target === e.currentTarget) {
+      closeModal();
+    }
+  };
+
   const filteredArtworks = Array.isArray(artworks) ? artworks.filter(artwork =>
     artwork &&
     (artwork.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -112,24 +213,20 @@ const Discover = () => {
           />
         </div>
 
-        {/* Error Message */}
         {error && (
           <div className="max-w-2xl mx-auto mb-6 p-4 bg-yellow-500/20 border border-yellow-500/30 rounded-lg">
             <p className="text-yellow-200 text-center">{error}</p>
           </div>
         )}
 
-        {/* Debug Info */}
-        <div className="max-w-2xl mx-auto mb-6 p-4 bg-blue-500/20 border border-blue-500/30 rounded-lg">
-          <p className="text-blue-200 text-center">
-            Artworks loaded: {Array.isArray(artworks) ? artworks.length : 'Invalid format'}
-          </p>
-        </div>
-
         {/* Artworks Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredArtworks.map((artwork) => (
-            <div key={artwork._id} className="bg-white/5 rounded-2xl p-6 border border-white/10">
+            <div 
+              key={artwork._id} 
+              className="bg-white/5 rounded-2xl p-6 border border-white/10 hover:border-white/20 transition-all duration-300 cursor-pointer transform hover:scale-105"
+              onClick={() => handleArtworkClick(artwork)}
+            >
               <img 
                 src={artwork.imageUrl} 
                 alt={artwork.title}
@@ -137,14 +234,137 @@ const Discover = () => {
               />
               <h3 className="text-white font-bold text-lg mb-2">{artwork.title}</h3>
               <p className="text-gray-400 mb-2">by {artwork.artistName}</p>
-              <p className="text-gray-300 text-sm mb-4">{artwork.description}</p>
-              <div className="flex justify-between text-gray-400">
-                <span>❤️ {artwork.likes}</span>
-                <span>👁️ {artwork.views}</span>
+              <p className="text-gray-300 text-sm mb-4 line-clamp-2">{artwork.description}</p>
+              <div className="flex justify-between items-center">
+                <button
+                  onClick={(e) => handleLike(artwork._id, e)}
+                  disabled={likingArtwork === artwork._id || !user}
+                  className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all duration-300 ${
+                    artwork.hasLiked 
+                      ? 'bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30' 
+                      : 'bg-white/10 text-gray-300 border border-white/20 hover:bg-white/20 hover:text-white'
+                  } ${!user ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  {likingArtwork === artwork._id ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+                  ) : (
+                    <span>{artwork.hasLiked ? '❤️' : '🤍'}</span>
+                  )}
+                  <span>{artwork.likesCount || 0}</span>
+                </button>
+                <span className="text-gray-400 text-sm flex items-center">
+                  👁️ {artwork.views || 0}
+                </span>
               </div>
             </div>
           ))}
         </div>
+
+        {/* Artwork Detail Modal */}
+        {isModalOpen && selectedArtwork && (
+          <div 
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={handleBackdropClick}
+          >
+            <div className="bg-gray-900 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto border border-white/10">
+              <div className="relative">
+                {/* Close Button */}
+                <button
+                  onClick={closeModal}
+                  className="absolute top-4 right-4 z-10 bg-black/50 hover:bg-black/70 text-white rounded-full p-2 transition-all duration-300"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2">
+                  {/* Artwork Image */}
+                  <div className="lg:sticky lg:top-0">
+                    <img 
+                      src={selectedArtwork.imageUrl} 
+                      alt={selectedArtwork.title}
+                      className="w-full h-64 lg:h-full object-cover rounded-t-2xl lg:rounded-l-2xl lg:rounded-tr-none"
+                    />
+                  </div>
+
+                  {/* Artwork Details */}
+                  <div className="p-6">
+                    <h2 className="text-2xl lg:text-3xl font-bold text-white mb-4">
+                      {selectedArtwork.title}
+                    </h2>
+                    
+                    <div className="flex items-center space-x-3 mb-4">
+                      <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white font-semibold">
+                        {selectedArtwork.artistName?.charAt(0) || 'A'}
+                      </div>
+                      <div>
+                        <p className="text-white font-medium">by {selectedArtwork.artistName}</p>
+                        <p className="text-gray-400 text-sm">{selectedArtwork.category}</p>
+                      </div>
+                    </div>
+
+                    <p className="text-gray-300 mb-6 leading-relaxed">
+                      {selectedArtwork.description}
+                    </p>
+
+                    {/* Tags */}
+                    {selectedArtwork.tags && selectedArtwork.tags.length > 0 && (
+                      <div className="mb-6">
+                        <h3 className="text-white font-semibold mb-2">Tags</h3>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedArtwork.tags.map((tag, index) => (
+                            <span
+                              key={index}
+                              className="bg-purple-600/20 text-purple-300 px-3 py-1 rounded-full text-sm border border-purple-500/30"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Engagement Stats */}
+                    <div className="flex items-center justify-between border-t border-white/10 pt-4">
+                      <div className="flex items-center space-x-6">
+                        <button
+                          onClick={(e) => handleLike(selectedArtwork._id, e)}
+                          disabled={likingArtwork === selectedArtwork._id || !user}
+                          className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all duration-300 ${
+                            selectedArtwork.hasLiked 
+                              ? 'bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30' 
+                              : 'bg-white/10 text-gray-300 border border-white/20 hover:bg-white/20 hover:text-white'
+                          } ${!user ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                          {likingArtwork === selectedArtwork._id ? (
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+                          ) : (
+                            <span>{selectedArtwork.hasLiked ? '❤️' : '🤍'}</span>
+                          )}
+                          <span>{selectedArtwork.likesCount || 0} Likes</span>
+                        </button>
+
+                        <div className="flex items-center space-x-2 text-gray-300">
+                          <span>👁️</span>
+                          <span>{selectedArtwork.views || 0} Views</span>
+                        </div>
+                      </div>
+
+                      {/* Additional Info */}
+                      <div className="text-right text-sm text-gray-400">
+                        <p>Uploaded {new Date(selectedArtwork.createdAt).toLocaleDateString()}</p>
+                        {selectedArtwork.dimensions && (
+                          <p>{selectedArtwork.dimensions.width} × {selectedArtwork.dimensions.height} {selectedArtwork.dimensions.unit}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {filteredArtworks.length === 0 && !loading && (
           <div className="text-center py-12">

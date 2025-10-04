@@ -1,6 +1,7 @@
 import express from 'express';
 import Artwork from '../models/Artwork.js';
 import User from '../models/User.js';
+import mongoose from 'mongoose';
 
 const router = express.Router();
 
@@ -92,8 +93,10 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Artwork not found' });
     }
 
-    // Increment views
+    // Increment views when someone visits the artwork page
     await artwork.incrementViews();
+
+    console.log(`👁️ Artwork "${artwork.title}" viewed. Total views: ${artwork.views}`);
 
     res.json(artwork);
   } catch (error) {
@@ -260,30 +263,148 @@ router.delete('/:id', async (req, res) => {
 });
 
 // LIKE/UNLIKE artwork
+// In backend/routes/artworks.js - Update the like route
 router.post('/:id/like', async (req, res) => {
   try {
     const { clerkUserId } = req.body;
-    
+
+    console.log('❤️ Like request received:', { artworkId: req.params.id, clerkUserId });
+
     if (!clerkUserId) {
-      return res.status(400).json({ error: 'clerkUserId is required' });
+      return res.status(400).json({ 
+        success: false,
+        error: 'clerkUserId is required' 
+      });
     }
 
     const artwork = await Artwork.findById(req.params.id);
     if (!artwork) {
-      return res.status(404).json({ error: 'Artwork not found' });
+      return res.status(404).json({ 
+        success: false,
+        error: 'Artwork not found' 
+      });
     }
 
-    // In a real app, you'd have a separate Likes collection
-    // For now, we'll just increment/decrement
-    const newLikes = await artwork.toggleLike();
-    
-    res.json({ 
-      message: 'Like updated successfully',
-      likes: newLikes
+    console.log('🎨 Artwork found:', artwork.title);
+    console.log('📊 Current likes:', artwork.likes.length);
+
+    // Toggle like
+    const likeIndex = artwork.likes.indexOf(clerkUserId);
+    let liked = false;
+
+    if (likeIndex > -1) {
+      // Unlike - remove user from likes array
+      artwork.likes.splice(likeIndex, 1);
+      console.log('👎 User unliked the artwork');
+    } else {
+      // Like - add user to likes array
+      artwork.likes.push(clerkUserId);
+      liked = true;
+      console.log('👍 User liked the artwork');
+    }
+
+    // Save the artwork
+    await artwork.save();
+    console.log('💾 Artwork saved. New likes count:', artwork.likes.length);
+
+    // Update user's total likes stats
+    try {
+      const User = mongoose.model('User');
+      const artistUser = await User.findOne({ clerkUserId: artwork.clerkUserId });
+      if (artistUser) {
+        await artistUser.updateTotalLikes();
+        console.log('📈 Updated artist total likes');
+      }
+    } catch (userError) {
+      console.error('⚠️ Could not update user stats:', userError);
+      // Don't fail the like operation if user stats update fails
+    }
+
+    res.json({
+      success: true,
+      likes: artwork.likes.length,
+      liked: liked,
+      message: liked ? "Artwork liked successfully" : "Artwork unliked successfully"
     });
+
   } catch (error) {
-    console.error('Error updating like:', error);
-    res.status(500).json({ error: 'Failed to update like' });
+    console.error("❌ Error in like route:", error);
+    res.status(500).json({ 
+      success: false,
+      error: "Failed to update like",
+      details: error.message 
+    });
+  }
+});
+
+// Also update the like-status route
+router.get('/:id/like-status/:clerkUserId', async (req, res) => {
+  try {
+    const { id, clerkUserId } = req.params;
+
+    console.log('🔍 Checking like status:', { artworkId: id, clerkUserId });
+
+    const artwork = await Artwork.findById(id);
+    if (!artwork) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'Artwork not found' 
+      });
+    }
+
+    const hasLiked = artwork.likes.includes(clerkUserId);
+
+    console.log('✅ Like status:', { hasLiked, likesCount: artwork.likes.length });
+
+    res.json({
+      success: true,
+      hasLiked,
+      likesCount: artwork.likes.length
+    });
+
+  } catch (error) {
+    console.error("❌ Error checking like status:", error);
+    res.status(500).json({ 
+      success: false,
+      error: "Failed to check like status",
+      details: error.message 
+    });
+  }
+});
+
+// GET like status for a user
+
+router.get('/:id/like-status/:clerkUserId', async (req, res) => {
+  try {
+    const { id, clerkUserId } = req.params;
+
+    console.log('🔍 Checking like status:', { artworkId: id, clerkUserId });
+
+    const artwork = await Artwork.findById(id);
+    if (!artwork) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'Artwork not found' 
+      });
+    }
+
+    const hasLiked = artwork.likes.includes(clerkUserId);
+
+    console.log('✅ Like status:', { hasLiked, likesCount: artwork.likes.length });
+
+    res.json({
+      success: true,
+      hasLiked,
+      likesCount: artwork.likes.length
+    });
+
+  } catch (error) {
+    console.error("❌ Error checking like status:", error);
+    res.status(500).json({ 
+      success: false,
+      error: "Failed to check like status",
+      details: error.message 
+    });
   }
 });
 
@@ -391,6 +512,43 @@ router.post('/sample', async (req, res) => {
   } catch (error) {
     console.error('❌ Error adding sample artworks:', error);
     res.status(500).json({ error: 'Failed to add sample artworks' });
+  }
+});
+
+// COUNT view for an artwork
+
+router.post('/:id/view', async (req, res) => {
+  try {
+    const { clerkUserId } = req.body; // Optional: track which user viewed
+
+    console.log('👁️ View request for artwork:', req.params.id);
+    
+    const artwork = await Artwork.findById(req.params.id);
+    if (!artwork) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'Artwork not found' 
+      });
+    }
+
+    // Increment views
+    const newViewCount = await artwork.incrementViews();
+    
+    console.log(`✅ View counted for "${artwork.title}". Total views: ${newViewCount}`);
+
+    res.json({
+      success: true,
+      views: newViewCount,
+      message: 'View counted successfully'
+    });
+
+  } catch (error) {
+    console.error('❌ Error counting view:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to count view',
+      details: error.message 
+    });
   }
 });
 

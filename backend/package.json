@@ -11,6 +11,8 @@
   "dependencies": {
     "@clerk/clerk-react": "^5.49.1",
     "@clerk/clerk-sdk-node": "^4.13.23",
+    "@clerk/express": "^1.7.36",
+    "cloudinary": "^2.7.0",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.21.2",

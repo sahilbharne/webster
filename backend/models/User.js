@@ -162,10 +162,33 @@ userSchema.virtual('displayName').get(function() {
 // Method to update stats
 userSchema.methods.updateStats = async function() {
   const Artwork = mongoose.model('Artwork');
-  const artworkCount = await Artwork.countDocuments({ userId: this._id });
+  
+  const userArtworks = await Artwork.find({ clerkUserId: this.clerkUserId });
+  
+  const artworkCount = userArtworks.length;
+  const totalLikes = userArtworks.reduce((sum, artwork) => sum + artwork.likes.length, 0);
+  const totalViews = userArtworks.reduce((sum, artwork) => sum + (artwork.views || 0), 0);
   
   this.stats.artworksCount = artworkCount;
+  this.stats.totalLikes = totalLikes;
+  this.stats.totalViews = totalViews;
+  
   await this.save();
+};
+
+// Method to update total likes across all artworks
+
+userSchema.methods.updateTotalLikes = async function() {
+  const Artwork = mongoose.model('Artwork');
+  
+  // Calculate total likes across all user's artworks
+  const userArtworks = await Artwork.find({ clerkUserId: this.clerkUserId });
+  const totalLikes = userArtworks.reduce((sum, artwork) => sum + artwork.likes.length, 0);
+  
+  this.stats.totalLikes = totalLikes;
+  await this.save();
+  
+  return totalLikes;
 };
 
 // Method to get public profile (excludes sensitive data)

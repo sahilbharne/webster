@@ -6,6 +6,7 @@ import multer from 'multer';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { ClerkExpressRequireAuth } from '@clerk/clerk-sdk-node';
+import uploadRoutes from './routes/upload.js';
 
 // Import models
 import User from './models/User.js';
@@ -33,6 +34,10 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(express.static('public'));
+
+// use upload routes
+
+app.use('/api/upload', uploadRoutes);
 
 // Clerk middleware for webhooks (exclude from auth)
 app.use('/api/webhooks/clerk', express.raw({ type: 'application/json' }));

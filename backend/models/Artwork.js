@@ -51,10 +51,10 @@ const artworkSchema = new mongoose.Schema({
   },
   
   // Engagement metrics
-  likes: {
-    type: Number,
-    default: 0
-  },
+  likes: [{
+  type: String, // storing clerkUserId
+  required: true
+  }],
   views: {
     type: Number,
     default: 0
@@ -165,6 +165,10 @@ artworkSchema.virtual('formattedDate').get(function() {
   });
 });
 
+artworkSchema.virtual('likesCount').get(function() {
+  return this.likes.length;
+});
+
 // Virtual for aspect ratio
 artworkSchema.virtual('aspectRatio').get(function() {
   if (this.dimensions.width && this.dimensions.height) {
@@ -196,16 +200,42 @@ artworkSchema.virtual('resolutionString').get(function() {
 artworkSchema.methods.incrementViews = async function() {
   this.views += 1;
   await this.save();
+  return this.views;
 };
 
+// Virtual for formatted views
+
+artworkSchema.virtual('formattedViews').get(function() {
+  if (this.views >= 1000000) {
+    return (this.views / 1000000).toFixed(1) + 'M';
+  } else if (this.views >= 1000) {
+    return (this.views / 1000).toFixed(1) + 'K';
+  }
+  return this.views.toString();
+});
+
 // Method to toggle like (returns new like count)
-artworkSchema.methods.toggleLike = async function() {
-  // This would typically interact with a separate Likes collection
-  // For simplicity, we're just incrementing/decrementing here
-  const wasLiked = this.isLiked; // This would come from user context
-  this.likes += wasLiked ? -1 : 1;
+artworkSchema.methods.toggleLike = async function(clerkUserId) {
+  const likeIndex = this.likes.indexOf(clerkUserId);
+  
+  if (likeIndex > -1) {
+    // Unlike - remove user from likes array
+    this.likes.splice(likeIndex, 1);
+  } else {
+    // Like - add user to likes array
+    this.likes.push(clerkUserId);
+  }
+  
   await this.save();
-  return this.likes;
+  return {
+    likes: this.likes.length,
+    liked: likeIndex === -1 // true if now liked, false if now unliked
+  };
+};
+
+// Method to check if a user has liked the artwork
+artworkSchema.methods.hasLiked = function(clerkUserId) {
+  return this.likes.includes(clerkUserId);
 };
 
 // Static method to find by Clerk User ID
