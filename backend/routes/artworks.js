@@ -408,38 +408,6 @@ router.get('/:id/like-status/:clerkUserId', async (req, res) => {
   }
 });
 
-// GET user's artworks
-router.get('/user/:clerkUserId', async (req, res) => {
-  try {
-    const { page = 1, limit = 12, status } = req.query;
-    
-    const query = { clerkUserId: req.params.clerkUserId };
-    
-    if (status) {
-      query.status = status;
-    }
-
-    const artworks = await Artwork.find(query)
-      .populate('userId', 'username firstName lastName profileImage')
-      .sort({ createdAt: -1 })
-      .limit(parseInt(limit))
-      .skip((parseInt(page) - 1) * parseInt(limit));
-
-    const total = await Artwork.countDocuments(query);
-
-    res.json({
-      artworks,
-      pagination: {
-        currentPage: parseInt(page),
-        totalPages: Math.ceil(total / parseInt(limit)),
-        totalArtworks: total
-      }
-    });
-  } catch (error) {
-    console.error('Error fetching user artworks:', error);
-    res.status(500).json({ error: 'Failed to fetch user artworks' });
-  }
-});
 
 // ADD SAMPLE ARTWORKS (for testing)
 router.post('/sample', async (req, res) => {
@@ -548,6 +516,28 @@ router.post('/:id/view', async (req, res) => {
       success: false,
       error: 'Failed to count view',
       details: error.message 
+    });
+  }
+});
+
+// GET user's artworks
+router.get('/user/:clerkUserId', async (req, res) => {
+  try {
+    const { clerkUserId } = req.params;
+    
+    const artworks = await Artwork.find({ clerkUserId })
+      .select('title imageUrl artistName tags createdAt likes views')
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      artworks
+    });
+  } catch (error) {
+    console.error('Error fetching user artworks:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to fetch user artworks' 
     });
   }
 });

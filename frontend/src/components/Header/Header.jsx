@@ -9,12 +9,13 @@ const Header = () => {
   const location = useLocation();
   const { user } = useUser();
 
-  const navItems = [
-    { id: 'discover', label: 'Discover', icon: '🔍', color: 'from-blue-500 to-cyan-500', path: '/discover' },
-    { id: 'collections', label: 'Collections', icon: '🖼️', color: 'from-purple-500 to-pink-500', path: '/collections' },
-    { id: 'saved', label: 'Saved', icon: '❤️', color: 'from-red-500 to-orange-500', path: '/saved' },
-    { id: 'dashboard', label: 'Dashboard', icon: '📊', color: 'from-green-500 to-emerald-500', path: '/dashboard' },
-  ];
+  // In Header.jsx - Update navItems
+const navItems = [
+  { id: 'discover', label: 'Discover', icon: '🔍', color: 'from-blue-500 to-cyan-500', path: '/discover' },
+  { id: 'collections', label: 'Collections', icon: '🖼️', color: 'from-purple-500 to-pink-500', path: '/collections' },
+  { id: 'saved', label: 'Saved', icon: '❤️', color: 'from-red-500 to-orange-500', path: '/saved' },
+  { id: 'dashboard', label: 'Dashboard', icon: '📊', color: 'from-green-500 to-emerald-500', path: '/dashboard' },
+];
 
   const isActive = (path) => {
     if (path === '/discover' || path === '/') {

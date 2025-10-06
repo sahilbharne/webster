@@ -1,0 +1,235 @@
+/* EditCollection.css - Most styles are shared with CreateCollection */
+.edit-collection-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  min-height: 100vh;
+}
+
+.edit-collection-header {
+  margin-bottom: 40px;
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #007bff;
+  text-decoration: none;
+  margin-bottom: 15px;
+  font-weight: 500;
+}
+
+.back-link:hover {
+  text-decoration: underline;
+}
+
+.edit-collection-header h1 {
+  font-size: 2.5rem;
+  color: #333;
+  margin-bottom: 10px;
+}
+
+.edit-collection-header p {
+  font-size: 1.1rem;
+  color: #666;
+  margin-bottom: 30px;
+}
+
+.edit-collection-form-container {
+  display: grid;
+  grid-template-columns: 1fr 400px;
+  gap: 40px;
+  align-items: start;
+}
+
+.edit-collection-form {
+  background: white;
+  padding: 30px;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Form Actions for Edit */
+.form-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 1px solid #e1e5e9;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+.left-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.right-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.cancel-btn {
+  padding: 12px 24px;
+  border: 2px solid #6c757d;
+  background: white;
+  color: #6c757d;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.3s;
+}
+
+.cancel-btn:hover:not(:disabled) {
+  background: #6c757d;
+  color: white;
+}
+
+.save-btn {
+  padding: 12px 24px;
+  background: #28a745;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.save-btn:hover:not(:disabled) {
+  background: #218838;
+}
+
+.save-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.delete-btn {
+  padding: 12px 24px;
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.delete-btn:hover:not(:disabled) {
+  background: #c82333;
+}
+
+.delete-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+/* Loading and Error States */
+.loading {
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.spinner {
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #007bff;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 20px;
+}
+
+.error-message {
+  background: #f8d7da;
+  color: #721c24;
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  border: 1px solid #f5c6cb;
+}
+
+.back-btn {
+  padding: 10px 20px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  margin-top: 15px;
+}
+
+.back-btn:hover {
+  background: #0056b3;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .edit-collection-form-container {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  
+  .form-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .left-actions,
+  .right-actions {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .edit-collection-header h1 {
+    font-size: 2rem;
+  }
+}
+
+/* Import shared styles from CreateCollection */
+.form-group,
+.form-label,
+.form-input,
+.form-textarea,
+.character-count,
+.form-hint,
+.category-options,
+.category-option,
+.category-radio,
+.category-card,
+.category-icon,
+.category-label,
+.privacy-options,
+.privacy-option,
+.privacy-radio,
+.privacy-card,
+.privacy-icon,
+.privacy-title,
+.privacy-description,
+.collection-preview,
+.preview-card,
+.preview-cover,
+.preview-cover-text,
+.preview-cover-placeholder,
+.preview-info,
+.preview-name,
+.preview-description,
+.preview-meta,
+.preview-category,
+.preview-visibility,
+.preview-tags,
+.preview-tag,
+.loading-spinner {
+  /* These styles are inherited from CreateCollection.css */
+  /* Make sure to import or duplicate the necessary styles */
+}

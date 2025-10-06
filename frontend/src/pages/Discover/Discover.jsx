@@ -3,29 +3,101 @@ import { useUser } from "@clerk/clerk-react";
 import { artworkAPI } from "../../utils/api";
 import { likeService } from "../../services/likeService";
 import { viewService } from "../../services/viewService";
+import { collectionService } from "../../services/collectionService";
+import { useNavigate } from "react-router-dom";
 import "./Discover.css";
 
 const Discover = () => {
+  const navigate = useNavigate();
   const { user } = useUser();
   const [artworks, setArtworks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [likingArtwork, setLikingArtwork] = useState(null);
-  
+
   // Modal state
   const [selectedArtwork, setSelectedArtwork] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Collection state
+
+  const [userCollections, setUserCollections] = useState([]);
+  const [showCollectionDropdown, setShowCollectionDropdown] = useState(false);
+  const [addingToCollection, setAddingToCollection] = useState(null);
+
+  // Message state
+  const [message, setMessage] = useState("");
 
   useEffect(() => {
     fetchArtworks();
   }, []);
 
+  // Fetch user's collections when modal opens
+
+  useEffect(() => {
+    if (isModalOpen && user && selectedArtwork) {
+      fetchUserCollections();
+    }
+  }, [isModalOpen, user, selectedArtwork]);
+
+  // Fetch user's collections
+
+  const fetchUserCollections = async () => {
+    try {
+      const response = await collectionService.getUserCollections(user.id);
+      setUserCollections(response.collections || []);
+    } catch (error) {
+      console.error('Error fetching user collections:', error);
+    }
+  };
+
+
+
+
+  // Add artwork to collection
+  const handleAddToCollection = async (collectionId, collectionName) => {
+    if (!user || !selectedArtwork) return;
+
+    // Prevent adding if artwork doesn't belong to user
+
+    if (selectedArtwork.clerkUserId !== user.id) {
+      setMessage("❌ You can only add your own artworks to collections");
+      setShowCollectionDropdown(false);
+      return;
+    }
+
+
+    setAddingToCollection(collectionId);
+
+    try {
+      await collectionService.addArtwork(collectionId, selectedArtwork._id, user.id);
+
+      // Show success message
+      setMessage(`✅ Added to "${collectionName}"!`);
+      setShowCollectionDropdown(false);
+
+      // Refresh collections to update counts
+      fetchUserCollections();
+
+    } catch (error) {
+      console.error('Error adding to collection:', error);
+      setMessage(`❌ Failed to add to collection: ${error.message}`);
+    } finally {
+      setAddingToCollection(null);
+    }
+  };
+
+  const handleCreateNewCollection = () => {
+    navigate('/collections/create');
+  };
+
+
   const fetchArtworks = async () => {
     try {
       setLoading(true);
       const response = await artworkAPI.getAll();
-      
+
       let artworksData = [];
       if (Array.isArray(response.data)) {
         artworksData = response.data;
@@ -34,7 +106,7 @@ const Discover = () => {
       } else if (response.data && Array.isArray(response.data.data)) {
         artworksData = response.data.data;
       }
-      
+
       // If user is logged in, fetch like status for each artwork
       if (user) {
         const artworksWithLikeStatus = await Promise.all(
@@ -67,7 +139,7 @@ const Discover = () => {
           views: artwork.views || 0
         })));
       }
-      
+
       setError("");
     } catch (err) {
       console.error("❌ Error fetching artworks:", err);
@@ -82,7 +154,7 @@ const Discover = () => {
     // Set the selected artwork and open modal
     setSelectedArtwork(artwork);
     setIsModalOpen(true);
-    
+
     // Record view count
     try {
       if (user) {
@@ -90,10 +162,10 @@ const Discover = () => {
       } else {
         await viewService.recordView(artwork._id);
       }
-      
+
       // Update local views count
       updateLocalViews(artwork._id);
-      
+
     } catch (error) {
       console.error('Error recording view:', error);
     }
@@ -101,31 +173,31 @@ const Discover = () => {
 
   const handleLike = async (artworkId, e) => {
     if (e) e.stopPropagation(); // Prevent triggering artwork click
-    
+
     if (!user) {
       alert("Please sign in to like artworks");
       return;
     }
 
     setLikingArtwork(artworkId);
-    
+
     try {
       const result = await likeService.toggleLike(artworkId, user.id);
-      
+
       if (result.success) {
         // Update local state for grid
-        setArtworks(prevArtworks => 
-          prevArtworks.map(artwork => 
-            artwork._id === artworkId 
-              ? { 
-                  ...artwork, 
-                  hasLiked: result.liked,
-                  likesCount: result.likes
-                } 
+        setArtworks(prevArtworks =>
+          prevArtworks.map(artwork =>
+            artwork._id === artworkId
+              ? {
+                ...artwork,
+                hasLiked: result.liked,
+                likesCount: result.likes
+              }
               : artwork
           )
         );
-        
+
         // Update modal artwork if it's the same one
         if (selectedArtwork && selectedArtwork._id === artworkId) {
           setSelectedArtwork(prev => ({
@@ -144,17 +216,17 @@ const Discover = () => {
   };
 
   const updateLocalViews = (artworkId) => {
-    setArtworks(prevArtworks => 
-      prevArtworks.map(artwork => 
-        artwork._id === artworkId 
-          ? { 
-              ...artwork, 
-              views: (artwork.views || 0) + 1 
-            } 
+    setArtworks(prevArtworks =>
+      prevArtworks.map(artwork =>
+        artwork._id === artworkId
+          ? {
+            ...artwork,
+            views: (artwork.views || 0) + 1
+          }
           : artwork
       )
     );
-    
+
     // Update modal artwork if it's the same one
     if (selectedArtwork && selectedArtwork._id === artworkId) {
       setSelectedArtwork(prev => ({
@@ -165,22 +237,36 @@ const Discover = () => {
   };
 
   const closeModal = () => {
-    setIsModalOpen(false);
-    setSelectedArtwork(null);
-  };
+  setIsModalOpen(false);
+  setSelectedArtwork(null);
+  setMessage(""); // Clear any existing messages
+  setShowCollectionDropdown(false);
+};
 
   // Close modal when clicking outside
   const handleBackdropClick = (e) => {
     if (e.target === e.currentTarget) {
+      setShowCollectionDropdown(false);
       closeModal();
     }
   };
 
+  // Collection Dropdown
+
+  {
+    showCollectionDropdown && (
+      <div
+        className="collection-dropdown-backdrop"
+        onClick={() => setShowCollectionDropdown(false)}
+      ></div>
+    )
+  }
+
   const filteredArtworks = Array.isArray(artworks) ? artworks.filter(artwork =>
     artwork &&
     (artwork.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    artwork.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    artwork.artistName?.toLowerCase().includes(searchTerm.toLowerCase()))
+      artwork.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      artwork.artistName?.toLowerCase().includes(searchTerm.toLowerCase()))
   ) : [];
 
   if (loading) {
@@ -222,13 +308,13 @@ const Discover = () => {
         {/* Artworks Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredArtworks.map((artwork) => (
-            <div 
-              key={artwork._id} 
+            <div
+              key={artwork._id}
               className="bg-white/5 rounded-2xl p-6 border border-white/10 hover:border-white/20 transition-all duration-300 cursor-pointer transform hover:scale-105"
               onClick={() => handleArtworkClick(artwork)}
             >
-              <img 
-                src={artwork.imageUrl} 
+              <img
+                src={artwork.imageUrl}
                 alt={artwork.title}
                 className="w-full h-48 object-cover rounded-lg mb-4"
               />
@@ -239,11 +325,10 @@ const Discover = () => {
                 <button
                   onClick={(e) => handleLike(artwork._id, e)}
                   disabled={likingArtwork === artwork._id || !user}
-                  className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all duration-300 ${
-                    artwork.hasLiked 
-                      ? 'bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30' 
-                      : 'bg-white/10 text-gray-300 border border-white/20 hover:bg-white/20 hover:text-white'
-                  } ${!user ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all duration-300 ${artwork.hasLiked
+                    ? 'bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30'
+                    : 'bg-white/10 text-gray-300 border border-white/20 hover:bg-white/20 hover:text-white'
+                    } ${!user ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   {likingArtwork === artwork._id ? (
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
@@ -262,7 +347,7 @@ const Discover = () => {
 
         {/* Artwork Detail Modal */}
         {isModalOpen && selectedArtwork && (
-          <div 
+          <div
             className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
             onClick={handleBackdropClick}
           >
@@ -281,8 +366,8 @@ const Discover = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-2">
                   {/* Artwork Image */}
                   <div className="lg:sticky lg:top-0">
-                    <img 
-                      src={selectedArtwork.imageUrl} 
+                    <img
+                      src={selectedArtwork.imageUrl}
                       alt={selectedArtwork.title}
                       className="w-full h-64 lg:h-full object-cover rounded-t-2xl lg:rounded-l-2xl lg:rounded-tr-none"
                     />
@@ -293,7 +378,7 @@ const Discover = () => {
                     <h2 className="text-2xl lg:text-3xl font-bold text-white mb-4">
                       {selectedArtwork.title}
                     </h2>
-                    
+
                     <div className="flex items-center space-x-3 mb-4">
                       <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white font-semibold">
                         {selectedArtwork.artistName?.charAt(0) || 'A'}
@@ -301,6 +386,15 @@ const Discover = () => {
                       <div>
                         <p className="text-white font-medium">by {selectedArtwork.artistName}</p>
                         <p className="text-gray-400 text-sm">{selectedArtwork.category}</p>
+                        {user && (
+                          <p className="text-xs mt-1">
+                            {selectedArtwork.clerkUserId === user.id ? (
+                              <span className="text-green-400">⭐ Your artwork</span>
+                            ) : (
+                              <span className="text-blue-400">👤 Other user's artwork</span>
+                            )}
+                          </p>
+                        )}
                       </div>
                     </div>
 
@@ -326,26 +420,109 @@ const Discover = () => {
                     )}
 
                     {/* Engagement Stats */}
-                    <div className="flex items-center justify-between border-t border-white/10 pt-4">
-                      <div className="flex items-center space-x-6">
+                    <div className="modal-stats">
+                      <div className="modal-actions">
                         <button
-                          onClick={(e) => handleLike(selectedArtwork._id, e)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleLike(selectedArtwork._id, e);
+                          }}
                           disabled={likingArtwork === selectedArtwork._id || !user}
-                          className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all duration-300 ${
-                            selectedArtwork.hasLiked 
-                              ? 'bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30' 
-                              : 'bg-white/10 text-gray-300 border border-white/20 hover:bg-white/20 hover:text-white'
-                          } ${!user ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          className={`modal-like-btn ${selectedArtwork.hasLiked ? 'liked' : ''}`}
                         >
                           {likingArtwork === selectedArtwork._id ? (
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+                            <div className="like-spinner"></div>
                           ) : (
                             <span>{selectedArtwork.hasLiked ? '❤️' : '🤍'}</span>
                           )}
                           <span>{selectedArtwork.likesCount || 0} Likes</span>
                         </button>
 
-                        <div className="flex items-center space-x-2 text-gray-300">
+                          {/* Message Display */}
+
+                        {message && (
+                          <div className={`message-display ${message.includes('❌') ? 'error' : 'success'}`}>
+                            {message}
+                          </div>
+                        )}
+
+                        {/* Add to Collection Button */}
+                        {user && selectedArtwork.clerkUserId === user.id && (
+                          <div className="collection-dropdown-container">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setShowCollectionDropdown(!showCollectionDropdown);
+                              }}
+                              className="add-to-collection-btn"
+                            >
+                              📁 Add to Collection
+                            </button>
+
+                            {showCollectionDropdown && (
+                              <div className="collection-dropdown">
+                                <div className="dropdown-header">
+                                  <h4>Add to Collection</h4>
+                                  <button
+                                    onClick={() => setShowCollectionDropdown(false)}
+                                    className="close-dropdown"
+                                  >
+                                    ×
+                                  </button>
+                                </div>
+
+                                <div className="collections-list">
+                                  {userCollections.length > 0 ? (
+                                    userCollections.map(collection => (
+                                      <button
+                                        key={collection._id}
+                                        onClick={() => handleAddToCollection(collection._id, collection.name)}
+                                        disabled={addingToCollection === collection._id}
+                                        className="collection-option"
+                                      >
+                                        {addingToCollection === collection._id ? (
+                                          <div className="small-spinner"></div>
+                                        ) : (
+                                          <span className="collection-icon">🖼️</span>
+                                        )}
+                                        <div className="collection-info">
+                                          <span className="collection-name">{collection.name}</span>
+                                          <span className="artwork-count">
+                                            {collection.artworks?.length || 0} artworks
+                                          </span>
+                                        </div>
+                                        {collection.artworks?.includes(selectedArtwork._id) && (
+                                          <span className="already-added">✓</span>
+                                        )}
+                                      </button>
+                                    ))
+                                  ) : (
+                                    <div className="no-collections-message">
+                                      <p>No collections yet</p>
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div className="dropdown-actions">
+                                  <button
+                                    onClick={handleCreateNewCollection}
+                                    className="create-collection-btn"
+                                  >
+                                    + Create New Collection
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {user && selectedArtwork.clerkUserId !== user.id && (
+                          <div className="text-gray-400 text-sm mt-2 text-center">
+                            <p>You can only add your own artworks to collections</p>
+                          </div>
+                        )}
+
+                        <div className="modal-views">
                           <span>👁️</span>
                           <span>{selectedArtwork.views || 0} Views</span>
                         </div>

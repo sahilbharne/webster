@@ -7,6 +7,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { ClerkExpressRequireAuth } from '@clerk/clerk-sdk-node';
 import uploadRoutes from './routes/upload.js';
+import collectionRoutes from './routes/collections.js';
 
 // Import models
 import User from './models/User.js';
@@ -92,6 +93,7 @@ const connectDB = async () => {
 // Use imported routes
 app.use('/api/users', userRoutes);
 app.use('/api/artworks', artworkRoutes);
+app.use('/api/collections', collectionRoutes);
 
 // ==================== CLERK WEBHOOKS ====================
 
@@ -339,14 +341,6 @@ app.get('/api/me', ClerkExpressRequireAuth(), async (req, res) => {
 
 // ==================== ERROR HANDLING ====================
 
-// 404 handler
-app.use('*', (req, res) => {
-  res.status(404).json({
-    success: false,
-    error: `Route ${req.originalUrl} not found`
-  });
-});
-
 // Global error handler
 app.use((err, req, res, next) => {
   console.error('🚨 Global Error Handler:', err);
@@ -363,6 +357,14 @@ app.use((err, req, res, next) => {
   res.status(500).json({
     success: false,
     error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message
+  });
+});
+
+// 404 handler
+app.use('*', (req, res) => {
+  res.status(404).json({
+    success: false,
+    error: `Route ${req.originalUrl} not found`
   });
 });
 

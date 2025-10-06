@@ -11,6 +11,10 @@ import Profile from './pages/Profile/Profile'
 import Upload from './pages/Upload/Upload'
 import Login from './pages/Login/Login'
 import Signup from './pages/Signup/Signup'
+import Collections from './pages/Collections/Collections'
+import CollectionDetail from './pages/CollectionDetail/CollectionDetail'
+import CreateCollection from './pages/CreateCollection/CreateCollection'
+import EditCollection from './pages/EditCollection/EditCollection'
 
 // Components
 import Header from './components/Header/Header'
@@ -33,7 +37,10 @@ function App() {
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/upload" element={<Upload />} />
-              
+              <Route path="/collections" element={<Collections />} />
+              <Route path="/collections/create" element={<CreateCollection />} />
+              <Route path="/collections/:id" element={<CollectionDetail />} />
+              <Route path="/collections/:id/edit" element={<EditCollection />} />
               {/* Fallback route for signed-in users */}
               <Route path="*" element={<Dashboard />} />
             </Routes>
@@ -47,7 +54,10 @@ function App() {
             <Route path="/discover" element={<Discover />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
-            
+            <Route path="/collections" element={<Collections />} />
+            <Route path="/collections/create" element={<CreateCollection />} />
+            <Route path="/collections/:id" element={<CollectionDetail />} />
+            <Route path="/collections/:id/edit" element={<EditCollection />} />
             {/* Redirect all other routes to login for signed-out users */}
             <Route path="*" element={<Login />} />
           </Routes>
