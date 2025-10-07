@@ -1,43 +1,493 @@
-import React from 'react';
+import React, { useState, useEffect } from "react";
+import { useUser } from "@clerk/clerk-react";
+import { artworkAPI } from "../../utils/api";
+import { likeService } from "../../services/likeService";
+import { viewService } from "../../services/viewService";
+import { collectionService } from "../../services/collectionService";
+import { useNavigate } from "react-router-dom";
 
 const Dashboard = () => {
-  const stats = [
-    { 
-      label: 'Artworks Viewed', 
-      value: '1,234', 
-      change: '+12%',
-      trend: 'up',
-      icon: '👁️'
-    },
-    { 
-      label: 'Collections', 
-      value: '24', 
-      change: '-3',
-      trend: 'down',
-      icon: '🖼️'
-    },
-    { 
-      label: 'Artists Followed', 
-      value: '56', 
-      change: '-8',
-      trend: 'down',
-      icon: '👨‍🎨'
-    },
-    { 
-      label: 'User Given', 
-      value: '892', 
-      change: '+45',
-      trend: 'up',
-      icon: '⭐'
-    }
-  ];
+  const navigate = useNavigate();
+  const { user } = useUser();
+  const [userArtworks, setUserArtworks] = useState([]);
+  const [userCollections, setUserCollections] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [stats, setStats] = useState({
+    totalArtworks: 0,
+    totalLikes: 0,
+    totalViews: 0,
+    totalCollections: 0
+  });
 
-  const activities = [
-    { action: 'Used ‘Sunset Dreams’', time: '2h ago', icon: '🎨' },
-    { action: 'Followed Artist @digital_dave', time: '2h ago', icon: '➕' },
-    { action: 'Created Collection ‘Nature’', time: '2h ago', icon: '📁' },
-    { action: 'Connected on ‘Urban Art’', time: '2h ago', icon: '🔗' }
-  ];
+  // Modal state
+  const [selectedArtwork, setSelectedArtwork] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [likingArtwork, setLikingArtwork] = useState(null);
+
+  // Real-time activities state
+  const [activities, setActivities] = useState([]);
+  const [lastUpdate, setLastUpdate] = useState(Date.now());
+
+  useEffect(() => {
+    if (user) {
+      fetchDashboardData();
+    }
+  }, [user]);
+
+  // Update activity timers every minute
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setLastUpdate(Date.now());
+    }, 60000); // Update every minute
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      console.log('🔄 Fetching dashboard data for user:', user.id);
+
+      let artworksData = [];
+      let collectionsData = [];
+
+      // Try to fetch user's artworks
+      try {
+        const artworksResponse = await artworkAPI.getUserArtworks(user.id);
+        console.log('📦 Artworks API response:', artworksResponse);
+        
+        if (Array.isArray(artworksResponse.data)) {
+          artworksData = artworksResponse.data;
+        } else if (artworksResponse.data && Array.isArray(artworksResponse.data.artworks)) {
+          artworksData = artworksResponse.data.artworks;
+        } else if (artworksResponse.data && Array.isArray(artworksResponse.data.data)) {
+          artworksData = artworksResponse.data.data;
+        } else {
+          artworksData = artworksResponse.data || [];
+        }
+
+        console.log('✅ User artworks loaded:', artworksData);
+      } catch (artworkError) {
+        console.error('❌ Error fetching user artworks:', artworkError);
+        // Fallback: fetch all artworks and filter by user
+        try {
+          console.log('🔄 Trying fallback: fetching all artworks...');
+          const allResponse = await artworkAPI.getAll();
+          let allArtworks = [];
+          
+          if (Array.isArray(allResponse.data)) {
+            allArtworks = allResponse.data;
+          } else if (allResponse.data && Array.isArray(allResponse.data.artworks)) {
+            allArtworks = allResponse.data.artworks;
+          } else if (allResponse.data && Array.isArray(allResponse.data.data)) {
+            allArtworks = allResponse.data.data;
+          } else {
+            allArtworks = allResponse.data || [];
+          }
+
+          artworksData = allArtworks.filter(artwork => 
+            artwork.clerkUserId === user.id
+          );
+          console.log('✅ Fallback - Filtered user artworks:', artworksData);
+        } catch (fallbackError) {
+          console.error('❌ Fallback also failed:', fallbackError);
+          artworksData = [];
+        }
+      }
+
+      // Fetch user's collections
+      try {
+        const collectionsResponse = await collectionService.getUserCollections(user.id);
+        collectionsData = collectionsResponse.collections || [];
+        console.log('✅ User collections:', collectionsData);
+      } catch (collectionError) {
+        console.error('❌ Error fetching collections:', collectionError);
+        collectionsData = [];
+      }
+
+      // Calculate stats
+      const totalLikes = artworksData.reduce((total, artwork) => 
+        total + (artwork.likesCount || artwork.likes?.length || 0), 0
+      );
+      const totalViews = artworksData.reduce((total, artwork) => 
+        total + (artwork.views || 0), 0
+      );
+
+      setStats({
+        totalArtworks: artworksData.length,
+        totalLikes,
+        totalViews,
+        totalCollections: collectionsData.length
+      });
+
+      setUserArtworks(artworksData);
+      setUserCollections(collectionsData);
+
+      // Generate real-time activities
+      generateRealTimeActivities(artworksData, collectionsData);
+      setError("");
+
+    } catch (err) {
+      console.error("❌ Error fetching dashboard data:", err);
+      setError("Failed to load dashboard data");
+      setUserArtworks([]);
+      setUserCollections([]);
+      setStats({
+        totalArtworks: 0,
+        totalLikes: 0,
+        totalViews: 0,
+        totalCollections: 0
+      });
+      setActivities(getWelcomeActivities());
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Generate real-time activities with proper timestamp handling
+  const generateRealTimeActivities = (artworks, collections) => {
+    const newActivities = [];
+    const now = Date.now();
+
+    console.log('🔄 Generating real-time activities...');
+
+    // Add recent artwork uploads
+    const recentArtworks = artworks.slice(0, 2);
+    recentArtworks.forEach(artwork => {
+      try {
+        // Convert createdAt to timestamp safely
+        let timestamp;
+        if (artwork.createdAt) {
+          timestamp = new Date(artwork.createdAt).getTime();
+          if (isNaN(timestamp)) {
+            console.warn('❌ Invalid artwork timestamp, using current time:', artwork.createdAt);
+            timestamp = now;
+          }
+        } else {
+          console.warn('❌ Missing artwork createdAt, using current time');
+          timestamp = now;
+        }
+
+        newActivities.push({
+          id: `artwork-${artwork._id}`,
+          action: `Uploaded '${artwork.title}'`,
+          timestamp: timestamp,
+          icon: '🎨',
+          type: 'artwork_upload'
+        });
+        console.log(`✅ Added artwork activity: ${artwork.title}`, timestamp);
+      } catch (error) {
+        console.error('Error processing artwork activity:', error);
+      }
+    });
+
+    // Add recent collections
+    const recentCollections = collections.slice(0, 2);
+    recentCollections.forEach(collection => {
+      try {
+        // Convert createdAt to timestamp safely
+        let timestamp;
+        if (collection.createdAt) {
+          timestamp = new Date(collection.createdAt).getTime();
+          if (isNaN(timestamp)) {
+            console.warn('❌ Invalid collection timestamp, using current time:', collection.createdAt);
+            timestamp = now;
+          }
+        } else {
+          console.warn('❌ Missing collection createdAt, using current time');
+          timestamp = now;
+        }
+
+        newActivities.push({
+          id: `collection-${collection._id}`,
+          action: `Created collection '${collection.name}'`,
+          timestamp: timestamp,
+          icon: '📁',
+          type: 'collection_create'
+        });
+        console.log(`✅ Added collection activity: ${collection.name}`, timestamp);
+      } catch (error) {
+        console.error('Error processing collection activity:', error);
+      }
+    });
+
+    // Add welcome activities if no real data
+    if (newActivities.length === 0) {
+      const welcomeActivities = getWelcomeActivities();
+      newActivities.push(...welcomeActivities);
+      console.log('✅ Added welcome activities');
+    }
+
+    // Sort by timestamp (newest first) and take latest 4
+    const sortedActivities = newActivities
+      .sort((a, b) => b.timestamp - a.timestamp)
+      .slice(0, 4);
+
+    console.log('📊 Final activities:', sortedActivities.map(a => ({
+      action: a.action,
+      timestamp: a.timestamp,
+      formatted: formatRealTime(a.timestamp)
+    })));
+
+    setActivities(sortedActivities);
+  };
+
+  // Real-time timestamp formatting
+  const formatRealTime = (timestamp) => {
+    try {
+      // Ensure timestamp is a valid number
+      const timestampNum = typeof timestamp === 'string' ? new Date(timestamp).getTime() : timestamp;
+      
+      if (isNaN(timestampNum)) {
+        console.warn('Invalid timestamp:', timestamp);
+        return 'Recently';
+      }
+
+      const now = Date.now();
+      const diff = now - timestampNum;
+      
+      // Handle future timestamps (shouldn't happen, but just in case)
+      if (diff < 0) {
+        return 'Just now';
+      }
+      
+      const seconds = Math.floor(diff / 1000);
+      const minutes = Math.floor(seconds / 60);
+      const hours = Math.floor(minutes / 60);
+      const days = Math.floor(hours / 24);
+
+      if (seconds < 60) {
+        return 'Just now';
+      } else if (minutes < 60) {
+        return `${minutes}m ago`;
+      } else if (hours < 24) {
+        return `${hours}h ago`;
+      } else if (days === 1) {
+        return 'Yesterday';
+      } else {
+        return `${days}d ago`;
+      }
+    } catch (error) {
+      console.error('Error formatting time:', error, timestamp);
+      return 'Recently';
+    }
+  };
+
+  // Welcome activities
+  const getWelcomeActivities = () => {
+    const now = Date.now();
+    return [
+      {
+        id: 'welcome-1',
+        action: 'Welcome to Grand Gallery!',
+        timestamp: now - 120000, // 2 minutes ago
+        icon: '🎉',
+        type: 'welcome'
+      },
+      {
+        id: 'welcome-2',
+        action: 'Upload your first artwork to get started',
+        timestamp: now - 60000, // 1 minute ago
+        icon: '🎨',
+        type: 'tip'
+      },
+      {
+        id: 'welcome-3',
+        action: 'Create collections to organize your work',
+        timestamp: now - 30000, // 30 seconds ago
+        icon: '📁',
+        type: 'tip'
+      },
+      {
+        id: 'welcome-4',
+        action: 'Explore artwork from other artists',
+        timestamp: now, // just now
+        icon: '🔍',
+        type: 'tip'
+      }
+    ];
+  };
+
+  // Add a new activity in real-time
+  const addNewActivity = (action, icon, type = 'user_action') => {
+    const newActivity = {
+      id: `${type}-${Date.now()}`,
+      action,
+      timestamp: Date.now(),
+      icon,
+      type
+    };
+
+    setActivities(prev => {
+      const updated = [newActivity, ...prev].slice(0, 4); // Keep only latest 4
+      return updated;
+    });
+  };
+
+  // Like functionality
+  const handleLike = async (artworkId, e) => {
+    if (e) e.stopPropagation();
+
+    if (!user) {
+      alert("Please sign in to like artworks");
+      return;
+    }
+
+    setLikingArtwork(artworkId);
+
+    try {
+      const result = await likeService.toggleLike(artworkId, user.id);
+
+      if (result.success) {
+        setUserArtworks(prevArtworks =>
+          prevArtworks.map(artwork =>
+            artwork._id === artworkId
+              ? {
+                ...artwork,
+                hasLiked: result.liked,
+                likesCount: result.likes
+              }
+              : artwork
+          )
+        );
+
+        setStats(prev => ({
+          ...prev,
+          totalLikes: result.liked ? prev.totalLikes + 1 : prev.totalLikes - 1
+        }));
+
+        // Add activity for like/unlike
+        const artwork = userArtworks.find(a => a._id === artworkId);
+        if (artwork && result.liked) {
+          addNewActivity(`You liked '${artwork.title}'`, '❤️', 'artwork_like');
+        }
+      }
+    } catch (error) {
+      console.error("Error liking artwork:", error);
+      alert("Failed to like artwork: " + error.message);
+    } finally {
+      setLikingArtwork(null);
+    }
+  };
+
+  // Modal functionality
+  const handleArtworkClick = async (artwork) => {
+    setSelectedArtwork(artwork);
+    setIsModalOpen(true);
+
+    // Record view count
+    try {
+      console.log('👁️ Recording view for artwork:', artwork._id);
+      let viewResult;
+      if (user) {
+        viewResult = await viewService.recordView(artwork._id, user.id);
+      } else {
+        viewResult = await viewService.recordView(artwork._id);
+      }
+      console.log('✅ View recorded:', viewResult);
+      
+      // Update local views count
+      updateLocalViews(artwork._id);
+
+      // Add view activity (only for others' artworks)
+      if (artwork.clerkUserId !== user.id) {
+        addNewActivity(`You viewed '${artwork.title}'`, '👁️', 'artwork_view');
+      }
+
+    } catch (error) {
+      console.error('❌ Error recording view:', error);
+    }
+  };
+
+  const updateLocalViews = (artworkId) => {
+    console.log('🔄 Updating local views for:', artworkId);
+    
+    setUserArtworks(prevArtworks =>
+      prevArtworks.map(artwork =>
+        artwork._id === artworkId
+          ? {
+            ...artwork,
+            views: (artwork.views || 0) + 1
+          }
+          : artwork
+      )
+    );
+
+    setStats(prev => ({
+      ...prev,
+      totalViews: prev.totalViews + 1
+    }));
+
+    if (selectedArtwork && selectedArtwork._id === artworkId) {
+      setSelectedArtwork(prev => ({
+        ...prev,
+        views: (prev.views || 0) + 1
+      }));
+    }
+    
+    console.log('✅ Local views updated');
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setSelectedArtwork(null);
+  };
+
+  const handleBackdropClick = (e) => {
+    if (e.target === e.currentTarget) {
+      closeModal();
+    }
+  };
+
+  const handleQuickAction = (action) => {
+    switch (action) {
+      case 'upload':
+        addNewActivity('Started uploading new artwork', '🎨', 'upload_start');
+        navigate('/upload');
+        break;
+      case 'collection':
+        addNewActivity('Started creating new collection', '📁', 'collection_start');
+        navigate('/collections/create');
+        break;
+      case 'discover':
+        addNewActivity('Exploring artwork gallery', '🔍', 'discover');
+        navigate('/discover');
+        break;
+      case 'artists':
+        addNewActivity('Browsing artists', '👥', 'artists');
+        navigate('/discover?tab=artists');
+        break;
+      default:
+        break;
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black pt-20 px-4">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-12">
+            <h1 className="text-4xl md:text-6xl font-bold text-white mb-4">
+              Your <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Dashboard</span>
+            </h1>
+            <p className="text-xl text-gray-300">Loading your data...</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+            {[1, 2, 3, 4].map((item) => (
+              <div key={item} className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10 animate-pulse">
+                <div className="h-6 bg-gray-700 rounded mb-4"></div>
+                <div className="h-8 bg-gray-700 rounded mb-2"></div>
+                <div className="h-4 bg-gray-700 rounded"></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const recentArtworks = userArtworks.slice(0, 4);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black pt-20 px-4">
@@ -45,101 +495,278 @@ const Dashboard = () => {
         {/* Hero Section */}
         <div className="text-center mb-12">
           <h1 className="text-4xl md:text-6xl font-bold text-white mb-4">
-            Your <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Dashboard</span>
+            Welcome, <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">{user?.firstName || 'Artist'}</span>
           </h1>
           <p className="text-xl text-gray-300 max-w-2xl mx-auto">
             Track your art journey and statistics in one place
           </p>
         </div>
 
+        {error && (
+          <div className="max-w-2xl mx-auto mb-6 p-4 bg-yellow-500/20 border border-yellow-500/30 rounded-lg">
+            <p className="text-yellow-200 text-center">{error}</p>
+          </div>
+        )}
+
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-          {stats.map((stat, index) => (
-            <div 
-              key={index}
-              className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10 hover:border-white/20 transition-all duration-300 hover:transform hover:scale-105"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <div className="text-2xl">{stat.icon}</div>
-                <span className={`text-sm font-semibold ${
-                  stat.trend === 'up' ? 'text-green-400' : 'text-red-400'
-                }`}>
-                  {stat.change}
-                </span>
-              </div>
-              <h3 className="text-3xl font-bold text-white mb-2">{stat.value}</h3>
-              <p className="text-gray-400 text-sm">{stat.label}</p>
-            </div>
-          ))}
+          <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10 hover:border-white/20 transition-all duration-300 hover:transform hover:scale-105 group">
+            <div className="text-2xl group-hover:scale-110 transition-transform duration-300 mb-4">🎨</div>
+            <h3 className="text-3xl font-bold text-white mb-2">{stats.totalArtworks}</h3>
+            <p className="text-gray-400 text-sm">Total Artworks</p>
+          </div>
+          
+          <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10 hover:border-white/20 transition-all duration-300 hover:transform hover:scale-105 group">
+            <div className="text-2xl group-hover:scale-110 transition-transform duration-300 mb-4">🖼️</div>
+            <h3 className="text-3xl font-bold text-white mb-2">{stats.totalCollections}</h3>
+            <p className="text-gray-400 text-sm">Collections</p>
+          </div>
+          
+          <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10 hover:border-white/20 transition-all duration-300 hover:transform hover:scale-105 group">
+            <div className="text-2xl group-hover:scale-110 transition-transform duration-300 mb-4">❤️</div>
+            <h3 className="text-3xl font-bold text-white mb-2">{stats.totalLikes}</h3>
+            <p className="text-gray-400 text-sm">Total Likes</p>
+          </div>
+          
+          <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10 hover:border-white/20 transition-all duration-300 hover:transform hover:scale-105 group">
+            <div className="text-2xl group-hover:scale-110 transition-transform duration-300 mb-4">👁️</div>
+            <h3 className="text-3xl font-bold text-white mb-2">{stats.totalViews}</h3>
+            <p className="text-gray-400 text-sm">Total Views</p>
+          </div>
         </div>
 
-        {/* Recent Activity */}
-        <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-8 border border-white/10">
+        {/* Real-time Recent Activity */}
+        <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-8 border border-white/10 mb-8">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold text-white">Recent Activity</h2>
-            <button className="text-purple-400 hover:text-purple-300 text-sm font-medium transition-colors">
-              View All →
-            </button>
+            <div className="flex items-center space-x-3">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              <span className="text-green-400 text-sm font-medium">Live</span>
+              <button 
+                onClick={fetchDashboardData}
+                className="text-purple-400 hover:text-purple-300 text-sm font-medium transition-colors flex items-center"
+              >
+                Refresh ↻
+              </button>
+            </div>
           </div>
 
           <div className="space-y-4">
-            {activities.map((activity, index) => (
+            {activities.map((activity) => (
               <div 
-                key={index}
+                key={activity.id}
                 className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5 hover:border-white/10 transition-all duration-300 group"
               >
                 <div className="flex items-center space-x-4">
-                  <div className="w-10 h-10 bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-full flex items-center justify-center group-hover:from-purple-500/30 group-hover:to-pink-500/30 transition-all duration-300">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center group-hover:scale-110 transition-all duration-300 ${
+                    activity.type === 'artwork_upload' ? 'bg-green-500/20 group-hover:bg-green-500/30' :
+                    activity.type === 'artwork_like' ? 'bg-red-500/20 group-hover:bg-red-500/30' :
+                    activity.type === 'artwork_view' ? 'bg-blue-500/20 group-hover:bg-blue-500/30' :
+                    activity.type === 'collection_create' ? 'bg-purple-500/20 group-hover:bg-purple-500/30' :
+                    'bg-gradient-to-r from-purple-500/20 to-pink-500/20 group-hover:from-purple-500/30 group-hover:to-pink-500/30'
+                  }`}>
                     <span className="text-lg">{activity.icon}</span>
                   </div>
                   <div>
                     <p className="text-white font-medium">{activity.action}</p>
-                    <p className="text-gray-400 text-sm">{activity.time}</p>
+                    <p className="text-gray-400 text-sm">
+                      {formatRealTime(activity.timestamp)}
+                    </p>
                   </div>
                 </div>
-                <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
+                <div className={`w-2 h-2 rounded-full animate-pulse ${
+                  Date.now() - activity.timestamp < 300000 ? 'bg-green-500' : // Less than 5 minutes
+                  Date.now() - activity.timestamp < 3600000 ? 'bg-yellow-500' : // Less than 1 hour
+                  'bg-gray-500'
+                }`}></div>
               </div>
             ))}
           </div>
         </div>
 
         {/* Additional Sections */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Quick Actions */}
           <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
             <h3 className="text-xl font-bold text-white mb-4">Quick Actions</h3>
             <div className="grid grid-cols-2 gap-4">
-              <button className="p-4 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 rounded-xl text-white transition-all duration-300 hover:transform hover:scale-105">
-                <span className="text-lg block mb-2">🎨</span>
+              <button 
+                onClick={() => handleQuickAction('upload')}
+                className="p-4 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 rounded-xl text-white transition-all duration-300 hover:transform hover:scale-105 group"
+              >
+                <span className="text-lg block mb-2 group-hover:scale-110 transition-transform">🎨</span>
                 Upload Art
               </button>
-              <button className="p-4 bg-pink-600/20 hover:bg-pink-600/30 border border-pink-500/30 rounded-xl text-white transition-all duration-300 hover:transform hover:scale-105">
-                <span className="text-lg block mb-2">🖼️</span>
+              <button 
+                onClick={() => handleQuickAction('collection')}
+                className="p-4 bg-pink-600/20 hover:bg-pink-600/30 border border-pink-500/30 rounded-xl text-white transition-all duration-300 hover:transform hover:scale-105 group"
+              >
+                <span className="text-lg block mb-2 group-hover:scale-110 transition-transform">🖼️</span>
                 New Collection
               </button>
-              <button className="p-4 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 rounded-xl text-white transition-all duration-300 hover:transform hover:scale-105">
-                <span className="text-lg block mb-2">🔍</span>
+              <button 
+                onClick={() => handleQuickAction('discover')}
+                className="p-4 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 rounded-xl text-white transition-all duration-300 hover:transform hover:scale-105 group"
+              >
+                <span className="text-lg block mb-2 group-hover:scale-110 transition-transform">🔍</span>
                 Discover Art
               </button>
-              <button className="p-4 bg-green-600/20 hover:bg-green-600/30 border border-green-500/30 rounded-xl text-white transition-all duration-300 hover:transform hover:scale-105">
-                <span className="text-lg block mb-2">👥</span>
+              <button 
+                onClick={() => handleQuickAction('artists')}
+                className="p-4 bg-green-600/20 hover:bg-green-600/30 border border-green-500/30 rounded-xl text-white transition-all duration-300 hover:transform hover:scale-105 group"
+              >
+                <span className="text-lg block mb-2 group-hover:scale-110 transition-transform">👥</span>
                 Find Artists
               </button>
             </div>
           </div>
 
-          {/* Recent Views */}
+          {/* Your Artworks */}
           <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
-            <h3 className="text-xl font-bold text-white mb-4">Recently Viewed</h3>
+            <h3 className="text-xl font-bold text-white mb-4">Your Recent Artworks</h3>
             <div className="space-y-3">
-              {['Abstract Dreams', 'Ocean Waves', 'Mountain Peak', 'City Lights'].map((art, index) => (
-                <div key={index} className="flex items-center justify-between p-3 hover:bg-white/5 rounded-lg transition-colors">
-                  <span className="text-gray-300">{art}</span>
-                  <span className="text-gray-500 text-sm">Today</span>
+              {recentArtworks.length > 0 ? (
+                recentArtworks.map((artwork) => (
+                  <div 
+                    key={artwork._id} 
+                    className="flex items-center justify-between p-3 hover:bg-white/5 rounded-lg transition-colors cursor-pointer group"
+                    onClick={() => handleArtworkClick(artwork)}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <img 
+                        src={artwork.imageUrl} 
+                        alt={artwork.title}
+                        className="w-10 h-10 object-cover rounded-lg opacity-80 group-hover:opacity-100 transition-opacity"
+                      />
+                      <span className="text-gray-300 truncate max-w-[150px] group-hover:text-white transition-colors">
+                        {artwork.title}
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-gray-500 text-sm">{artwork.views || 0} 👁️</span>
+                      <span className="text-gray-500 text-sm">{artwork.likesCount || 0} ❤️</span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-8">
+                  <div className="text-4xl mb-2 opacity-50">🎨</div>
+                  <p className="text-gray-400">No artworks yet</p>
+                  <p className="text-gray-500 text-sm mt-1">Start by uploading your first artwork</p>
+                  <button 
+                    onClick={() => navigate('/upload')}
+                    className="text-purple-400 hover:text-purple-300 text-sm mt-3 transition-colors"
+                  >
+                    Upload Artwork →
+                  </button>
                 </div>
-              ))}
+              )}
             </div>
           </div>
+        </div>
+
+        {/* Artwork Detail Modal */}
+        {isModalOpen && selectedArtwork && (
+          <div
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={handleBackdropClick}
+          >
+            <div className="bg-gray-900 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto border border-white/10">
+              <div className="relative">
+                <button
+                  onClick={closeModal}
+                  className="absolute top-4 right-4 z-10 bg-black/50 hover:bg-black/70 text-white rounded-full p-2 transition-all duration-300"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2">
+                  <div className="lg:sticky lg:top-0">
+                    <img
+                      src={selectedArtwork.imageUrl}
+                      alt={selectedArtwork.title}
+                      className="w-full h-64 lg:h-full object-cover rounded-t-2xl lg:rounded-l-2xl lg:rounded-tr-none"
+                    />
+                  </div>
+
+                  <div className="p-6">
+                    <h2 className="text-2xl lg:text-3xl font-bold text-white mb-4">
+                      {selectedArtwork.title}
+                    </h2>
+
+                    <div className="flex items-center space-x-3 mb-4">
+                      <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white font-semibold">
+                        {selectedArtwork.artistName?.charAt(0) || 'A'}
+                      </div>
+                      <div>
+                        <p className="text-white font-medium">by {selectedArtwork.artistName}</p>
+                        <p className="text-gray-400 text-sm">{selectedArtwork.category}</p>
+                      </div>
+                    </div>
+
+                    <p className="text-gray-300 mb-6 leading-relaxed">
+                      {selectedArtwork.description}
+                    </p>
+
+                    {selectedArtwork.tags && selectedArtwork.tags.length > 0 && (
+                      <div className="mb-6">
+                        <h3 className="text-white font-semibold mb-2">Tags</h3>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedArtwork.tags.map((tag, index) => (
+                            <span
+                              key={index}
+                              className="bg-purple-600/20 text-purple-300 px-3 py-1 rounded-full text-sm border border-purple-500/30"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between">
+                      <button
+                        onClick={(e) => handleLike(selectedArtwork._id, e)}
+                        disabled={likingArtwork === selectedArtwork._id || !user}
+                        className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all duration-300 ${
+                          selectedArtwork.hasLiked
+                            ? 'bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30'
+                            : 'bg-white/10 text-gray-300 border border-white/20 hover:bg-white/20 hover:text-white'
+                        } ${!user ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      >
+                        {likingArtwork === selectedArtwork._id ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+                        ) : (
+                          <span>{selectedArtwork.hasLiked ? '❤️' : '🤍'}</span>
+                        )}
+                        <span>{selectedArtwork.likesCount || 0} Likes</span>
+                      </button>
+
+                      <div className="text-gray-400 text-sm flex items-center space-x-4">
+                        <span>👁️ {selectedArtwork.views || 0} Views</span>
+                        {selectedArtwork.dimensions && (
+                          <span>{selectedArtwork.dimensions.width} × {selectedArtwork.dimensions.height}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Refresh Button */}
+        <div className="text-center mt-8">
+          <button 
+            onClick={fetchDashboardData}
+            className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg transition-colors font-medium flex items-center mx-auto space-x-2"
+          >
+            <span>Refresh Data</span>
+            <span>↻</span>
+          </button>
         </div>
       </div>
     </div>

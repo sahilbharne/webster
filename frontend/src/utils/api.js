@@ -38,7 +38,8 @@ export const artworkAPI = {
   getById: (id) => API.get(`/artworks/${id}`),
   update: (id, artwork) => API.put(`/artworks/${id}`, artwork),
   delete: (id) => API.delete(`/artworks/${id}`),
-  like: (id) => API.post(`/artworks/${id}/like`)
+  like: (id) => API.post(`/artworks/${id}/like`),
+  getUserArtworks: (userId) => API.get(`/artworks/user/${userId}`)
 };
 
 // Auth API functions  

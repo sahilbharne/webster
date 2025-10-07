@@ -372,41 +372,6 @@ router.get('/:id/like-status/:clerkUserId', async (req, res) => {
   }
 });
 
-// GET like status for a user
-
-router.get('/:id/like-status/:clerkUserId', async (req, res) => {
-  try {
-    const { id, clerkUserId } = req.params;
-
-    console.log('🔍 Checking like status:', { artworkId: id, clerkUserId });
-
-    const artwork = await Artwork.findById(id);
-    if (!artwork) {
-      return res.status(404).json({ 
-        success: false,
-        error: 'Artwork not found' 
-      });
-    }
-
-    const hasLiked = artwork.likes.includes(clerkUserId);
-
-    console.log('✅ Like status:', { hasLiked, likesCount: artwork.likes.length });
-
-    res.json({
-      success: true,
-      hasLiked,
-      likesCount: artwork.likes.length
-    });
-
-  } catch (error) {
-    console.error("❌ Error checking like status:", error);
-    res.status(500).json({ 
-      success: false,
-      error: "Failed to check like status",
-      details: error.message 
-    });
-  }
-});
 
 
 // ADD SAMPLE ARTWORKS (for testing)

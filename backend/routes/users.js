@@ -67,6 +67,31 @@ router.get('/clerk/:clerkUserId', async (req, res) => {
   }
 });
 
+
+// Add this route to your users.js (after the GET /clerk/:clerkUserId route)
+router.get('/clerk/:clerkUserId', async (req, res) => {
+  try {
+    const user = await User.findOne({ clerkUserId: req.params.clerkUserId });
+    if (!user) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'User not found' 
+      });
+    }
+    
+    // Update user stats before returning
+    await user.updateStats();
+    
+    res.status(200).json(user.toPublicJSON ? user.toPublicJSON() : user);
+  } catch (error) {
+    console.error('Get user by Clerk ID error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Internal server error' 
+    });
+  }
+});
+
 // Get user by ID
 router.get('/:userId', async (req, res) => {
   try {

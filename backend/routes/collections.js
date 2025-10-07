@@ -7,52 +7,6 @@ import User from '../models/User.js';
 
 const router = express.Router();
 
-// GET all public collections
-router.get('/', async (req, res) => {
-  try {
-    const { page = 1, limit = 12, search, category } = req.query;
-
-    const query = { isPublic: true };
-
-    // Search in name and description
-    if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } },
-        { tags: { $in: [new RegExp(search, 'i')] } }
-      ];
-    }
-
-    // Filter by category
-    if (category) {
-      query.category = category;
-    }
-
-    const collections = await Collection.find(query)
-      .populate('owner', 'username firstName lastName profileImage')
-      .populate('artworks', 'title imageUrl artistName likes views')
-      .sort({ createdAt: -1 })
-      .limit(parseInt(limit))
-      .skip((parseInt(page) - 1) * parseInt(limit));
-
-    const total = await Collection.countDocuments(query);
-
-    res.json({
-      collections,
-      pagination: {
-        currentPage: parseInt(page),
-        totalPages: Math.ceil(total / parseInt(limit)),
-        totalCollections: total,
-        hasNext: parseInt(page) < Math.ceil(total / parseInt(limit)),
-        hasPrev: parseInt(page) > 1
-      }
-    });
-  } catch (error) {
-    console.error('Error fetching collections:', error);
-    res.status(500).json({ error: 'Failed to fetch collections' });
-  }
-});
-
 // GET user's collections
 router.get('/user/:clerkUserId', async (req, res) => {
   try {
@@ -138,6 +92,57 @@ router.get('/:id/available-artworks', async (req, res) => {
     });
   }
 });
+
+
+// GET all public collections
+router.get('/', async (req, res) => {
+  try {
+    const { page = 1, limit = 12, search, category } = req.query;
+
+    const query = { isPublic: true };
+
+    // Search in name and description
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } },
+        { tags: { $in: [new RegExp(search, 'i')] } }
+      ];
+    }
+
+    // Filter by category
+    if (category) {
+      query.category = category;
+    }
+
+    const collections = await Collection.find(query)
+      .populate('owner', 'username firstName lastName profileImage')
+      .populate('artworks', 'title imageUrl artistName likes views')
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit));
+
+    const total = await Collection.countDocuments(query);
+
+    res.json({
+      collections,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(total / parseInt(limit)),
+        totalCollections: total,
+        hasNext: parseInt(page) < Math.ceil(total / parseInt(limit)),
+        hasPrev: parseInt(page) > 1
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching collections:', error);
+    res.status(500).json({ error: 'Failed to fetch collections' });
+  }
+});
+
+
+
+
 
 // GET single collection by ID - FIXED VERSION
 router.get('/:id', async (req, res) => {
