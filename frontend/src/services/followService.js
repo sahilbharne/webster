@@ -2,28 +2,26 @@
 import API from "../utils/api";
 
 export const followService = {
-  // Follow an artist
+  // ✅ FIXED: POST to /api/follow/:artistId
   followArtist: (artistId, followerId) => {
     return API.post(`/follow/${artistId}`, { followerId });
   },
 
-  // Unfollow an artist
+  // ✅ FIXED: DELETE to /api/follow/:artistId
   unfollowArtist: (artistId, followerId) => {
     return API.delete(`/follow/${artistId}`, { data: { followerId } });
   },
 
-  // Check if user is following an artist
+  // ✅ FIXED: GET to /api/follow/status/:artistId/:followerId
   checkFollowStatus: (artistId, followerId) => {
     return API.get(`/follow/status/${artistId}/${followerId}`);
   },
 
-  // Get all artists the user is following
   getFollowing: (userId) => {
     return API.get(`/follow/following/${userId}`);
   },
 
-  // Get user's followers
   getFollowers: (userId) => {
     return API.get(`/follow/followers/${userId}`);
-  }
+  },
 };

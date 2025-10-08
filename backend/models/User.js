@@ -235,4 +235,62 @@ userSchema.statics.findOrCreateFromClerk = async function(clerkUser) {
   return user;
 };
 
+// Add these methods to your User.js model
+
+// Method to follow a user
+userSchema.methods.follow = async function (artistClerkId) {
+  const Follow = mongoose.model('Follow');
+  
+  const follow = new Follow({
+    followerId: this.clerkUserId,
+    followingId: artistClerkId
+  });
+  
+  await follow.save();
+  
+  // Update stats
+  await User.findOneAndUpdate(
+    { clerkUserId: artistClerkId },
+    { $inc: { 'stats.followersCount': 1 } }
+  );
+  
+  await User.findOneAndUpdate(
+    { clerkUserId: this.clerkUserId },
+    { $inc: { 'stats.followingCount': 1 } }
+  );
+};
+
+// Method to unfollow a user
+userSchema.methods.unfollow = async function (artistClerkId) {
+  const Follow = mongoose.model('Follow');
+  
+  await Follow.findOneAndDelete({
+    followerId: this.clerkUserId,
+    followingId: artistClerkId
+  });
+  
+  // Update stats
+  await User.findOneAndUpdate(
+    { clerkUserId: artistClerkId },
+    { $inc: { 'stats.followersCount': -1 } }
+  );
+  
+  await User.findOneAndUpdate(
+    { clerkUserId: this.clerkUserId },
+    { $inc: { 'stats.followingCount': -1 } }
+  );
+};
+
+// Method to check if following a user
+userSchema.methods.isFollowing = async function (artistClerkId) {
+  const Follow = mongoose.model('Follow');
+  
+  const follow = await Follow.findOne({
+    followerId: this.clerkUserId,
+    followingId: artistClerkId
+  });
+  
+  return !!follow;
+};
+
 export default mongoose.model('User', userSchema);
