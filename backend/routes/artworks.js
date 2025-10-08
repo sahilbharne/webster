@@ -2,6 +2,9 @@ import express from 'express';
 import Artwork from '../models/Artwork.js';
 import User from '../models/User.js';
 import mongoose from 'mongoose';
+import { getRecommendations } from '../ai_services/recommendation_service.js';
+import { protect } from '../middleware/auth.js';
+//import { protect } from '../middleware/authMiddleware.js'; // Assuming you have auth middleware
 
 const router = express.Router();
 
@@ -505,6 +508,17 @@ router.get('/user/:clerkUserId', async (req, res) => {
       error: 'Failed to fetch user artworks' 
     });
   }
+});
+
+router.get('/recommendations', protect, async (req, res) => {
+    try {
+        // req.user.clerkUserId should be available from your 'protect' middleware
+        const recommendations = await getRecommendations(req.user.clerkUserId);
+        res.json(recommendations);
+    } catch (error) {
+        console.error('Error getting recommendations:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
 });
 
 export default router;
