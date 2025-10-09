@@ -160,6 +160,10 @@ artworkSchema.set('toObject', { virtuals: true });
 
 // Virtual for formatted date
 artworkSchema.virtual('formattedDate').get(function() {
+  
+  if (!this.createdAt) {
+    return 'Date not available'; 
+  }
   return this.createdAt.toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'long',

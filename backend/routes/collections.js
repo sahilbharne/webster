@@ -7,6 +7,101 @@ import User from '../models/User.js';
 
 const router = express.Router();
 
+// GET all public collections
+router.get('/', async (req, res) => {
+  try {
+    const { page = 1, limit = 12, search, category } = req.query;
+
+    const query = { isPublic: true };
+
+    // Search in name and description
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } },
+        { tags: { $in: [new RegExp(search, 'i')] } }
+      ];
+    }
+
+    // Filter by category
+    if (category) {
+      query.category = category;
+    }
+
+    const collections = await Collection.find(query)
+      .populate('owner', 'username firstName lastName profileImage')
+      .populate('artworks', 'title imageUrl artistName likes')
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit));
+
+    const total = await Collection.countDocuments(query);
+
+    res.json({
+      collections,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(total / parseInt(limit)),
+        totalCollections: total,
+        hasNext: parseInt(page) < Math.ceil(total / parseInt(limit)),
+        hasPrev: parseInt(page) > 1
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching collections:', error);
+    res.status(500).json({ error: 'Failed to fetch collections' });
+  }
+});
+
+// CREATE new collection
+router.post('/', async (req, res) => {
+  try {
+    const { name, description, isPublic, tags, category, clerkUserId } = req.body;
+
+    if (!clerkUserId) {
+      return res.status(400).json({ error: 'clerkUserId is required' });
+    }
+
+    // Find user by Clerk ID
+    const user = await User.findOne({ clerkUserId });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const collectionData = {
+      name,
+      description: description || '',
+      isPublic: isPublic !== false,
+      tags: tags || [],
+      category: category || 'personal',
+      owner: user._id,
+      clerkUserId,
+      artworks: []
+    };
+
+    const collection = new Collection(collectionData);
+    await collection.save();
+
+    // Populate for response
+    await collection.populate('owner', 'username firstName lastName profileImage');
+
+    res.status(201).json({
+      success: true,
+      message: 'Collection created successfully',
+      collection
+    });
+  } catch (error) {
+    console.error('Error creating collection:', error);
+    
+    if (error.name === 'ValidationError') {
+      const errors = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({ error: errors.join(', ') });
+    }
+    
+    res.status(500).json({ error: 'Failed to create collection' });
+  }
+});
+
 // GET user's collections
 router.get('/user/:clerkUserId', async (req, res) => {
   try {
@@ -24,6 +119,33 @@ router.get('/user/:clerkUserId', async (req, res) => {
       success: false,
       error: 'Failed to fetch user collections' 
     });
+  }
+});
+
+// GET single collection by ID - FIXED VERSION
+router.get('/:id', async (req, res) => {
+  try {
+    const collection = await Collection.findById(req.params.id)
+      .populate('owner', 'username firstName lastName profileImage bio socialLinks')
+      .populate('artworks');
+
+    if (!collection) {
+      return res.status(404).json({ error: 'Collection not found' });
+    }
+
+    // Allow access if collection is public OR if user provides valid clerkUserId via query param
+    const { clerkUserId } = req.query; // Get from query params instead of body
+    
+    if (!collection.isPublic) {
+      if (!clerkUserId || collection.clerkUserId !== clerkUserId) {
+        return res.status(403).json({ error: 'Access denied. This is a private collection.' });
+      }
+    }
+
+    res.json(collection);
+  } catch (error) {
+    console.error('Error fetching collection:', error);
+    res.status(500).json({ error: 'Failed to fetch collection' });
   }
 });
 
@@ -90,133 +212,6 @@ router.get('/:id/available-artworks', async (req, res) => {
       error: 'Failed to fetch available artworks',
       details: error.message 
     });
-  }
-});
-
-
-// GET all public collections
-router.get('/', async (req, res) => {
-  try {
-    const { page = 1, limit = 12, search, category } = req.query;
-
-    const query = { isPublic: true };
-
-    // Search in name and description
-    if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } },
-        { tags: { $in: [new RegExp(search, 'i')] } }
-      ];
-    }
-
-    // Filter by category
-    if (category) {
-      query.category = category;
-    }
-
-    const collections = await Collection.find(query)
-      .populate('owner', 'username firstName lastName profileImage')
-      .populate('artworks', 'title imageUrl artistName likes views')
-      .sort({ createdAt: -1 })
-      .limit(parseInt(limit))
-      .skip((parseInt(page) - 1) * parseInt(limit));
-
-    const total = await Collection.countDocuments(query);
-
-    res.json({
-      collections,
-      pagination: {
-        currentPage: parseInt(page),
-        totalPages: Math.ceil(total / parseInt(limit)),
-        totalCollections: total,
-        hasNext: parseInt(page) < Math.ceil(total / parseInt(limit)),
-        hasPrev: parseInt(page) > 1
-      }
-    });
-  } catch (error) {
-    console.error('Error fetching collections:', error);
-    res.status(500).json({ error: 'Failed to fetch collections' });
-  }
-});
-
-
-
-
-
-// GET single collection by ID - FIXED VERSION
-router.get('/:id', async (req, res) => {
-  try {
-    const collection = await Collection.findById(req.params.id)
-      .populate('owner', 'username firstName lastName profileImage bio socialLinks')
-      .populate('artworks');
-
-    if (!collection) {
-      return res.status(404).json({ error: 'Collection not found' });
-    }
-
-    // Allow access if collection is public OR if user provides valid clerkUserId via query param
-    const { clerkUserId } = req.query; // Get from query params instead of body
-    
-    if (!collection.isPublic) {
-      if (!clerkUserId || collection.clerkUserId !== clerkUserId) {
-        return res.status(403).json({ error: 'Access denied. This is a private collection.' });
-      }
-    }
-
-    res.json(collection);
-  } catch (error) {
-    console.error('Error fetching collection:', error);
-    res.status(500).json({ error: 'Failed to fetch collection' });
-  }
-});
-
-// CREATE new collection
-router.post('/', async (req, res) => {
-  try {
-    const { name, description, isPublic, tags, category, clerkUserId } = req.body;
-
-    if (!clerkUserId) {
-      return res.status(400).json({ error: 'clerkUserId is required' });
-    }
-
-    // Find user by Clerk ID
-    const user = await User.findOne({ clerkUserId });
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    const collectionData = {
-      name,
-      description: description || '',
-      isPublic: isPublic !== false,
-      tags: tags || [],
-      category: category || 'personal',
-      owner: user._id,
-      clerkUserId,
-      artworks: []
-    };
-
-    const collection = new Collection(collectionData);
-    await collection.save();
-
-    // Populate for response
-    await collection.populate('owner', 'username firstName lastName profileImage');
-
-    res.status(201).json({
-      success: true,
-      message: 'Collection created successfully',
-      collection
-    });
-  } catch (error) {
-    console.error('Error creating collection:', error);
-    
-    if (error.name === 'ValidationError') {
-      const errors = Object.values(error.errors).map(err => err.message);
-      return res.status(400).json({ error: errors.join(', ') });
-    }
-    
-    res.status(500).json({ error: 'Failed to create collection' });
   }
 });
 
@@ -391,8 +386,6 @@ router.delete('/:id/artworks/:artworkId', async (req, res) => {
     res.status(500).json({ error: 'Failed to remove artwork from collection' });
   }
 });
-
-// In routes/collections.js - REPLACE the available-artworks route with this:
 
 
 

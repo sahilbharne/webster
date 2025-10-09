@@ -6,6 +6,7 @@ export const collectionService = {
   getAll: async (params = {}) => {
     try {
       const response = await API.get('/collections', { params });
+      console.log(response);
       return response.data;
     } catch (error) {
       console.error('Collection service error (getAll):', error);
