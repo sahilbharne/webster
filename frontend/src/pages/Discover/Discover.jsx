@@ -19,8 +19,8 @@ const Discover = () => {
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [likingArtwork, setLikingArtwork] = useState(null);
-  const [followingArtist, setFollowingArtist] = useState(null);
-  const [unfollowingArtist, setUnfollowingArtist] = useState(null);
+  const [togglingFollow, setTogglingFollow] = useState(null);
+
   const [activeTab, setActiveTab] = useState('all');
 
   // Modal state
@@ -39,483 +39,126 @@ const Discover = () => {
   const [followingArtists, setFollowingArtists] = useState(new Set());
 
 
-  const fetchRecommendations = useCallback(async () => {
-    if (!user) return;
-    
-    try {
-      setRecommendationsLoading(true);
-      console.log("🔄 Fetching personalized recommendations...");
-      
-      const response = await recommendationService.getRecommendations(user.id);
-      console.log("✅ Recommendations response:", response);
-      
-      if (response.data?.success) {
-        const recommendations = response.data.recommendations || [];
-        
-        // Process recommendations with follow status and like status
-        const processedRecommendations = await Promise.all(
-          recommendations.map(async (artwork) => {
-            try {
-              const artworkData = {
-                ...artwork,
-                hasLiked: false,
-                likesCount: artwork.likes ? artwork.likes.length : 0,
-                views: artwork.views || 0,
-                isFollowing: followingArtists.has(artwork.clerkUserId)
-              };
-
-              // Get like status for logged-in users
-              if (user) {
-                try {
-                  const likeStatus = await likeService.getLikeStatus(artwork._id, user.id);
-                  artworkData.hasLiked = likeStatus.hasLiked;
-                  artworkData.likesCount = likeStatus.likesCount;
-                } catch (likeError) {
-                  console.warn(`Like status failed for ${artwork._id}:`, likeError.message);
-                }
-              }
-
-              return artworkData;
-            } catch (error) {
-              console.error(`Error processing recommended artwork ${artwork._id}:`, error);
-              return {
-                ...artwork,
-                hasLiked: false,
-                likesCount: 0,
-                views: 0,
-                isFollowing: false
-              };
-            }
-          })
-        );
-        
-        console.log("✅ Setting recommended artworks:", processedRecommendations.length);
-        setRecommendedArtworks(processedRecommendations);
-      } else {
-        console.warn("❌ No recommendations received");
-        setRecommendedArtworks([]);
-      }
-    } catch (error) {
-      console.error("❌ Error fetching recommendations:", error);
-      setRecommendedArtworks([]);
-    } finally {
-      setRecommendationsLoading(false);
-    }
-  }, [user, followingArtists]);
-  
-
-  // ✅ FIXED: Debugged follow status fetch
-const fetchFollowingArtists = useCallback(async () => {
-  if (!user) return new Set();
-
-  try {
-    console.log("🔄 Fetching following artists for user:", user.id);
-    const response = await followService.getFollowing(user.id);
-    
-    // ✅ DEBUG: Log the full response to see the actual structure
-    console.log("🔍 Full API response:", response);
-    console.log("🔍 Response data:", response.data);
-    
-    // Handle different possible response structures
-    let followingArray = [];
-    
-    if (Array.isArray(response.data?.following)) {
-      followingArray = response.data.following;
-      console.log("✅ Using response.data.following");
-    } else if (Array.isArray(response.data)) {
-      followingArray = response.data; // Direct array response
-      console.log("✅ Using response.data (direct array)");
-    } else if (Array.isArray(response.following)) {
-      followingArray = response.following;
-      console.log("✅ Using response.following");
-    } else {
-      console.warn("❌ No following array found in response. Available keys:", 
-        response.data ? Object.keys(response.data) : 'No data'
-      );
-    }
-    
-    console.log("🔍 Following array:", followingArray);
-    
-    // Extract clerkUserId safely from the array
-    const followingIds = new Set(
-      followingArray
-        .map(artist => {
-          // Try different possible field names for the user ID
-          const id = artist.clerkUserId || artist.id || artist._id || artist.userId;
-          console.log(`🎨 Artist: ${artist.name || artist.username}, ID: ${id}`);
-          return id;
-        })
-        .filter(id => id && typeof id === 'string' && id.startsWith('user_')) // Filter valid Clerk user IDs
-    );
-    
-    console.log("✅ Final following artists set:", Array.from(followingIds));
-    return followingIds;
-  } catch (error) {
-    console.error('❌ Error fetching following artists:', error);
-    console.error('Error details:', error.response?.data);
-    return new Set();
-  }
-}, [user]);
-
-
-// ✅ NEW: Force refresh follow status from backend
-const refreshFollowStatus = useCallback(async () => {
-  if (!user) return;
-  
-  try {
-    console.log("🔄 Force refreshing follow status...");
-    const followingSet = await fetchFollowingArtists();
-    
-    // Update the state
-    setFollowingArtists(followingSet);
-    
-    // Update all artworks with the correct follow status
-    setArtworks(prevArtworks => 
-      prevArtworks.map(artwork => ({
-        ...artwork,
-        isFollowing: followingSet.has(artwork.clerkUserId)
-      }))
-    );
-    
-    console.log("✅ Follow status refreshed");
-  } catch (error) {
-    console.error("❌ Error refreshing follow status:", error);
-  }
-}, [user, fetchFollowingArtists]);
-
-  // ✅ FIXED: Apply follow status to artworks using the single source of truth
-  const applyFollowStatusToArtworks = useCallback((artworksData, followingSet) => {
-    return artworksData.map(artwork => ({
-      ...artwork,
-      isFollowing: followingSet.has(artwork.clerkUserId)
-    }));
-  }, []);
-
-  // ✅ FIXED: Simplified artwork fetch with proper follow status application
-  const fetchArtworks = useCallback(async (followingSet = new Set()) => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      console.log("🔄 Fetching artworks with follow set:", Array.from(followingSet));
+      setError("");
+      let initialFollowingSet = new Set();
 
-      const response = await artworkAPI.getAll();
-      let artworksData = [];
-
-      if (Array.isArray(response.data)) {
-        artworksData = response.data;
-      } else if (response.data && Array.isArray(response.data.artworks)) {
-        artworksData = response.data.artworks;
-      } else if (response.data && Array.isArray(response.data.data)) {
-        artworksData = response.data.data;
+      // 1. First, wait to get the list of artists the user follows.
+      if (user?.id) {
+        const followingResponse = await followService.getFollowing(user.id);
+        if (followingResponse.data.success) {
+          initialFollowingSet = new Set(followingResponse.data.following?.map(artist => artist.clerkUserId) || []);
+          setFollowingArtists(initialFollowingSet);
+        }
       }
 
-      console.log("✅ Raw artworks data:", artworksData.length);
+      // 2. Fetch all artworks
+      const artworkResponse = await artworkAPI.getAll();
+      const artworksData = artworkResponse.data?.artworks || artworkResponse.data?.data || artworkResponse.data || [];
 
-      // Process artworks with like status and follow status
-      const processedArtworks = await Promise.all(
+      // 3. Process artworks with the now-correct follow status
+      const artworksWithStatus = await Promise.all(
         artworksData.map(async (artwork) => {
-          try {
-            // ✅ CRITICAL FIX: Properly apply follow status from the followingSet
-            const isFollowing = followingSet.has(artwork.clerkUserId);
-
-            console.log(`🎨 Artwork "${artwork.title}" - clerkUserId: ${artwork.clerkUserId}, isFollowing: ${isFollowing}`);
-
-            const artworkData = {
-              ...artwork,
-              hasLiked: false,
-              likesCount: artwork.likes ? artwork.likes.length : 0,
-              views: artwork.views || 0,
-              isFollowing: isFollowing // This was the bug - not properly set
-            };
-
-            // Get like status only for logged-in users
-            if (user) {
-              try {
-                const likeStatus = await likeService.getLikeStatus(artwork._id, user.id);
-                artworkData.hasLiked = likeStatus.hasLiked;
-                artworkData.likesCount = likeStatus.likesCount;
-              } catch (likeError) {
-                console.warn(`Like status failed for ${artwork._id}:`, likeError.message);
-              }
+          const isFollowing = initialFollowingSet.has(artwork.clerkUserId);
+          let hasLiked = false;
+          let likesCount = artwork.likes?.length || 0;
+          if (user?.id) {
+            try {
+              const likeStatusResponse = await likeService.getLikeStatus(artwork._id, user.id);
+              console.log(likeStatusResponse)
+              hasLiked = likeStatusResponse.hasLiked;
+              likesCount = likeStatusResponse.likesCount;
+            } catch (e) {
+              console.warn(`Could not fetch like status for ${artwork._id}`);
             }
-
-            return artworkData;
-          } catch (error) {
-            console.error(`Error processing artwork ${artwork._id}:`, error);
-            return {
-              ...artwork,
-              hasLiked: false,
-              likesCount: 0,
-              views: 0,
-              isFollowing: false
-            };
           }
+
+
+          return { ...artwork, isFollowing, hasLiked, likesCount, views: artwork.views || 0 };
         })
       );
 
-      console.log("✅ Final artworks with follow status:",
-        processedArtworks.map(a => ({
-          title: a.title,
-          clerkUserId: a.clerkUserId,
-          isFollowing: a.isFollowing
-        }))
-      );
+      setArtworks(artworksWithStatus);
 
-      setArtworks(processedArtworks);
-      setError("");
+      // 4. Fetch recommendations if the user is logged in
+      if (user?.id) {
+        await fetchRecommendations(initialFollowingSet, artworksWithStatus);
+      }
+
     } catch (err) {
-      console.error("❌ Error fetching artworks:", err);
+      console.error("❌ Error fetching data:", err);
       setError("Failed to load artworks.");
-      setArtworks([]);
     } finally {
       setLoading(false);
     }
   }, [user]);
 
-  // ✅ FIXED: Proper initialization sequence with state synchronization
-  useEffect(() => {
-    const initializeData = async () => {
-      console.log("🚀 Initializing Discover data...");
 
-      if (user) {
-        console.log("👤 User detected, fetching data in sequence...");
-
-        try {
-          // 1. First get who we're following
-          const followingSet = await fetchFollowingArtists();
-          console.log("✅ Following artists loaded:", Array.from(followingSet));
-
-          // 2. Update state with following artists FIRST
-          setFollowingArtists(followingSet);
-
-          // 3. Then fetch artworks with the correct follow status
-          await fetchArtworks(followingSet);
-
-          // 4. Fetch personalized recommendations
-          await fetchRecommendations();
-
-          console.log("✅ All data fetched and synchronized successfully");
-        } catch (error) {
-          console.error("❌ Error initializing data:", error);
-          setError("Failed to load data");
-        }
-      } else {
-        console.log("👤 No user, fetching artworks only...");
-        await fetchArtworks();
-      }
-    };
-
-    initializeData();
-  }, [user, fetchFollowingArtists, fetchArtworks]);
-
-  // ✅ FIXED: Improved follow artist function
- // ✅ FIXED: Handle backend response properly
-const handleFollowArtist = async (artistId, artistName, e) => {
-  if (e) e.stopPropagation();
-
-  if (!user) {
-    alert("Please sign in to follow artists");
-    return;
-  }
-
-  if (!user.id) {
-    console.error("Follower ID (user.id) is missing.");
-    setMessage("❌ Cannot follow artist, your session may still be loading. Please wait a moment and try again.");
-    return;
-  }
-
-  if (artistId === user.id) {
-    setMessage("❌ You cannot follow yourself");
-    return;
-  }
-
-  setFollowingArtist(artistId);
-
-  try {
-    console.log("🔄 Attempting to follow artist:", { artistId, artistName, followerId: user.id });
-
-    // ✅ IMMEDIATE UI UPDATE - Optimistic update
-    setFollowingArtists(prev => {
-      const newFollowing = new Set(prev);
-      newFollowing.add(artistId);
-      console.log("✅ Immediately updating followingArtists:", Array.from(newFollowing));
-      return newFollowing;
-    });
-
-    // ✅ IMMEDIATELY update ALL artworks by this artist
-    setArtworks(prevArtworks =>
-      prevArtworks.map(artwork =>
-        artwork.clerkUserId === artistId
-          ? { ...artwork, isFollowing: true }
-          : artwork
-      )
-    );
-
-    // ✅ IMMEDIATELY update modal if open
-    if (selectedArtwork && selectedArtwork.clerkUserId === artistId) {
-      setSelectedArtwork(prev => ({ ...prev, isFollowing: true }));
-    }
-
-    // Now make the API call
-    const response = await followService.followArtist(artistId, user.id);
-    console.log("✅ Follow API response:", response);
-
-    // ✅ FIXED: Handle different response formats
-    if (response && (response.data?.success || response.success)) {
-      setMessage(`✅ Following ${artistName}`);
-      console.log("✅ Follow successful, keeping optimistic update");
-      // Don't rollback - keep the optimistic update since backend succeeded
-    } else {
-      console.error("Follow API returned unsuccessful:", response);
-      setMessage(`❌ Failed to follow artist: ${response?.data?.error || 'Unknown error'}`);
-      
-      // ✅ ROLLBACK only if API explicitly failed
-      rollbackFollowUpdate(artistId);
-    }
-  } catch (error) {
-    console.error("❌ Error following artist:", error);
-    
-    // ✅ FIXED: Check if the follow actually succeeded despite the error
-    if (error.response?.status === 400) {
-      // 400 might mean "already following" - check if we should keep the state
-      const errorMessage = error.response?.data?.error || '';
-      if (errorMessage.includes('already following') || errorMessage.includes('Already following')) {
-        // The user is already following, so keep the optimistic update
-        console.log("✅ User is already following, keeping UI state");
-        setMessage(`✅ Already following ${artistName}`);
-      } else {
-        // Actual error, rollback
-        setMessage(`❌ Failed to follow artist: ${errorMessage}`);
-        rollbackFollowUpdate(artistId);
-      }
-    } else {
-      // Other errors, rollback
-      setMessage(`❌ Failed to follow artist: ${error.response?.data?.error || error.message}`);
-      rollbackFollowUpdate(artistId);
-    }
-  } finally {
-    setFollowingArtist(null);
-  }
-};
-
-// ✅ NEW: Helper function for rollback
-const rollbackFollowUpdate = (artistId) => {
-  setFollowingArtists(prev => {
-    const newFollowing = new Set(prev);
-    newFollowing.delete(artistId);
-    console.log("❌ Rollback followingArtists:", Array.from(newFollowing));
-    return newFollowing;
-  });
-
-  setArtworks(prevArtworks =>
-    prevArtworks.map(artwork =>
-      artwork.clerkUserId === artistId
-        ? { ...artwork, isFollowing: false }
-        : artwork
-    )
-  );
-
-  if (selectedArtwork && selectedArtwork.clerkUserId === artistId) {
-    setSelectedArtwork(prev => ({ ...prev, isFollowing: false }));
-  }
-};
-
-  // ✅ FIXED: Improved unfollow artist function with immediate state update
-  const handleUnfollowArtist = async (artistId, artistName, e) => {
-    if (e) e.stopPropagation();
-
-    if (!user) {
-      alert("Please sign in to unfollow artists");
-      return;
-    }
-
-    if (!user.id) {
-      console.error("Follower ID (user.id) is missing.");
-      setMessage("❌ Cannot unfollow artist, your session may still be loading.");
-      return;
-    }
-
-    setUnfollowingArtist(artistId);
+  const fetchRecommendations = useCallback(async (followingSet, allArtworks) => {
+    if (!user) return;
 
     try {
-      console.log("🔄 Attempting to unfollow artist:", { artistId, artistName, followerId: user.id });
+      setRecommendationsLoading(true);
+      const response = await recommendationService.getRecommendations(user.id);
 
-      // ✅ IMMEDIATE UI UPDATE - Optimistic update
-      setFollowingArtists(prev => {
-        const newFollowing = new Set(prev);
-        newFollowing.delete(artistId);
-        console.log("✅ Immediately updating followingArtists after unfollow:", Array.from(newFollowing));
-        return newFollowing;
-      });
+      if (response.data?.success) {
+        const recommendations = response.data.recommendations || [];
 
-      // ✅ IMMEDIATELY update ALL artworks by this artist
-      setArtworks(prevArtworks =>
-        prevArtworks.map(artwork =>
-          artwork.clerkUserId === artistId
-            ? { ...artwork, isFollowing: false }
-            : artwork
-        )
-      );
-
-      // ✅ IMMEDIATELY update modal if open
-      if (selectedArtwork && selectedArtwork.clerkUserId === artistId) {
-        setSelectedArtwork(prev => ({ ...prev, isFollowing: false }));
-      }
-
-      // Now make the API call
-      const response = await followService.unfollowArtist(artistId, user.id);
-      console.log("✅ Unfollow API response:", response);
-
-      if (response && response.data && response.data.success) {
-        setMessage(`👋 Unfollowed ${artistName}`);
-      } else {
-        console.error("Unfollow API returned unsuccessful:", response);
-        setMessage(`❌ Failed to unfollow artist: ${response?.data?.error || 'Unknown error'}`);
-
-        // ✅ ROLLBACK if API failed
-        setFollowingArtists(prev => {
-          const newFollowing = new Set(prev);
-          newFollowing.add(artistId);
-          console.log("❌ Rollback followingArtists:", Array.from(newFollowing));
-          return newFollowing;
+        const processedRecs = recommendations.map(rec => {
+          const existingArtwork = allArtworks.find(art => art._id === rec._id);
+          if (existingArtwork) return existingArtwork;
+          return { ...rec, isFollowing: followingSet.has(rec.clerkUserId), hasLiked: false, likesCount: rec.likes?.length || 0 };
         });
 
-        setArtworks(prevArtworks =>
-          prevArtworks.map(artwork =>
-            artwork.clerkUserId === artistId
-              ? { ...artwork, isFollowing: true }
-              : artwork
-          )
+        setRecommendedArtworks(processedRecs);
+      }
+    } catch (error) {
+      console.error("❌ Error fetching recommendations:", error);
+    } finally {
+      setRecommendationsLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+
+  const toggleFollow = async (artistId, artistName, e) => {
+    if (e) e.stopPropagation();
+    if (!user?.id) return alert("Please sign in.");
+    if (artistId === user.id) return;
+
+    setTogglingFollow(artistId);
+    const isCurrentlyFollowing = followingArtists.has(artistId);
+
+    try {
+      const response = isCurrentlyFollowing
+        ? await followService.unfollowArtist(artistId, user.id)
+        : await followService.followArtist(artistId, user.id);
+
+      if (response.data.success) {
+        const newFollowingSet = new Set(followingArtists);
+        isCurrentlyFollowing ? newFollowingSet.delete(artistId) : newFollowingSet.add(artistId);
+        setFollowingArtists(newFollowingSet);
+
+        const updateState = (items) => items.map(art =>
+          art.clerkUserId === artistId ? { ...art, isFollowing: !isCurrentlyFollowing } : art
         );
 
-        if (selectedArtwork && selectedArtwork.clerkUserId === artistId) {
-          setSelectedArtwork(prev => ({ ...prev, isFollowing: true }));
+        setArtworks(updateState);
+        setRecommendedArtworks(updateState);
+
+        if (selectedArtwork?.clerkUserId === artistId) {
+          setSelectedArtwork(prev => ({ ...prev, isFollowing: !isCurrentlyFollowing }));
         }
       }
     } catch (error) {
-      console.error("❌ Error unfollowing artist:", error);
-      setMessage(`❌ Failed to unfollow artist: ${error.response?.data?.error || error.message}`);
-
-      // ✅ ROLLBACK on error
-      setFollowingArtists(prev => {
-        const newFollowing = new Set(prev);
-        newFollowing.add(artistId);
-        console.log("❌ Rollback followingArtists due to error:", Array.from(newFollowing));
-        return newFollowing;
-      });
-
-      setArtworks(prevArtworks =>
-        prevArtworks.map(artwork =>
-          artwork.clerkUserId === artistId
-            ? { ...artwork, isFollowing: true }
-            : artwork
-        )
-      );
-
-      if (selectedArtwork && selectedArtwork.clerkUserId === artistId) {
-        setSelectedArtwork(prev => ({ ...prev, isFollowing: true }));
-      }
+      console.error("Error toggling follow:", error);
     } finally {
-      setUnfollowingArtist(null);
+      setTogglingFollow(null);
     }
   };
 
@@ -582,84 +225,43 @@ const rollbackFollowUpdate = (artistId) => {
 
   const handleLike = async (artworkId, e) => {
     if (e) e.stopPropagation();
-    if (!user) {
-      alert("Please sign in to like artworks");
-      return;
-    }
+    if (!user) return alert("Please sign in to like artworks");
 
     setLikingArtwork(artworkId);
     try {
-      const result = await likeService.toggleLike(artworkId, user.id);
-      if (result.success) {
-        setArtworks(prevArtworks =>
-          prevArtworks.map(artwork =>
-            artwork._id === artworkId
-              ? {
-                ...artwork,
-                hasLiked: result.liked,
-                likesCount: result.likes
-              }
-              : artwork
-          )
-        );
+      const response = await likeService.toggleLike(artworkId, user.id);
+      if (response.success) {
+        const { liked, likes } = response;
+        console.log(response);
+        setMessage(liked ? "✅ Liked!" : "❌ Unliked");
+        const updateLikeState = (items) => items.map(art => art._id === artworkId ? { ...art, hasLiked: liked, likesCount: likes } : art);
 
-        // Update recommended artworks
-        setRecommendedArtworks(prevRecommendations =>
-          prevRecommendations.map(artwork =>
-            artwork._id === artworkId
-              ? {
-                ...artwork,
-                hasLiked: result.liked,
-                likesCount: result.likes
-              }
-              : artwork
-          )
-        );
+        setArtworks(updateLikeState);
+        setRecommendedArtworks(updateLikeState);
 
-        setRecommendedArtworks(prevRecommendations =>
-          prevRecommendations.map(artwork =>
-            artwork._id === artworkId
-              ? {
-                ...artwork,
-                hasLiked: result.liked,
-                likesCount: result.likes
-              }
-              : artwork
-          )
-        );
-
-        if (selectedArtwork && selectedArtwork._id === artworkId) {
-          setSelectedArtwork(prev => ({
-            ...prev,
-            hasLiked: result.liked,
-            likesCount: result.likes
-          }));
+        if (selectedArtwork?._id === artworkId) {
+          setSelectedArtwork(prev => ({ ...prev, hasLiked: liked, likesCount: likes }));
         }
-        setTimeout(() => {
-          fetchRecommendations();
-        }, 1000);
+
+        
       }
     } catch (error) {
       console.error("Error liking artwork:", error);
-      alert("Failed to like artwork: " + error.message);
     } finally {
       setLikingArtwork(null);
     }
   };
 
-  const handleTabChange = (tab) => {
-    setActiveTab(tab);
-  };
 
   const getFilteredArtworks = () => {
     let artworksToShow = [];
-    
+
     switch (activeTab) {
       case 'recommended':
         artworksToShow = recommendedArtworks;
         break;
       case 'following':
-        artworksToShow = artworks.filter(artwork => 
+        artworksToShow = artworks.filter(artwork =>
           artwork.clerkUserId && followingArtists.has(artwork.clerkUserId)
         );
         break;
@@ -682,7 +284,7 @@ const rollbackFollowUpdate = (artistId) => {
     return artworksToShow;
   };
 
-    const filteredArtworks = getFilteredArtworks();
+  const filteredArtworks = getFilteredArtworks();
 
 
   const updateLocalViews = (artworkId) => {
@@ -718,9 +320,34 @@ const rollbackFollowUpdate = (artistId) => {
     }
   };
 
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+  };
+
+  const getArtworksForDisplay = () => {
+    let sourceArray = artworks;
+
+    if (activeTab === 'recommended') {
+      sourceArray = recommendedArtworks;
+    } else if (activeTab === 'following') {
+      sourceArray = artworks.filter(art => followingArtists.has(art.clerkUserId));
+    }
+
+    if (!searchTerm) {
+      return sourceArray;
+    }
+
+    return sourceArray.filter(art =>
+      art.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      art.artistName?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  };
+
+  const artworksForDisplay = getArtworksForDisplay();
 
 
-    if (loading) {
+
+  if (loading) {
     return (
       <div className="pt-20 pb-10 px-6">
         <div className="container mx-auto text-center">
@@ -749,11 +376,10 @@ const rollbackFollowUpdate = (artistId) => {
             <button
               key={tab.id}
               onClick={() => handleTabChange(tab.id)}
-              className={`flex-1 py-3 px-4 rounded-xl font-semibold transition-all duration-300 ${
-                activeTab === tab.id 
-                  ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg' 
-                  : 'text-gray-300 hover:text-white hover:bg-white/5'
-              }`}
+              className={`flex-1 py-3 px-4 rounded-xl font-semibold transition-all duration-300 ${activeTab === tab.id
+                ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
+                : 'text-gray-300 hover:text-white hover:bg-white/5'
+                }`}
             >
               {tab.label}
               {tab.id === 'recommended' && recommendationsLoading && (
@@ -821,9 +447,9 @@ const rollbackFollowUpdate = (artistId) => {
         )}
 
         {/* Artworks Grid */}
-        {!loading && !recommendationsLoading && filteredArtworks.length > 0 && (
+        {!loading && !recommendationsLoading && artworksForDisplay.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredArtworks.map((artwork) => (
+            {artworksForDisplay.map((artwork) => (
               <div
                 key={artwork._id}
                 className="bg-white/5 rounded-2xl p-6 border border-white/10 hover:border-white/20 transition-all duration-300 cursor-pointer transform hover:scale-105 relative"
@@ -849,32 +475,13 @@ const rollbackFollowUpdate = (artistId) => {
                   {user && artwork.clerkUserId !== user.id && (
                     <div className="flex space-x-2">
                       {/* Follow Button - Shows when NOT following */}
-                      {!artwork.isFollowing && (
-                        <button
-                          onClick={(e) => handleFollowArtist(artwork.clerkUserId, artwork.artistName, e)}
-                          disabled={followingArtist === artwork.clerkUserId}
-                          className="flex items-center space-x-1 px-3 py-1 rounded-full text-xs bg-white/10 text-gray-300 border border-white/20 hover:bg-white/20 hover:text-white transition-all duration-300 disabled:opacity-50"
-                        >
-                          {followingArtist === artwork.clerkUserId ? (
-                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current"></div>
-                          ) : (
-                            <span>+ Follow</span>
-                          )}
+                      {artwork.isFollowing ? (
+                        <button onClick={(e) => toggleFollow(artwork.clerkUserId, artwork.artistName, e)} disabled={togglingFollow === artwork.clerkUserId} className="flex items-center space-x-1 px-3 py-1 rounded-full text-xs bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/30 transition-all duration-300 disabled:opacity-50">
+                          {togglingFollow === artwork.clerkUserId ? <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current"></div> : <span>✓ Following</span>}
                         </button>
-                      )}
-
-                      {/* Unfollow Button - Shows when following */}
-                      {artwork.isFollowing && (
-                        <button
-                          onClick={(e) => handleUnfollowArtist(artwork.clerkUserId, artwork.artistName, e)}
-                          disabled={unfollowingArtist === artwork.clerkUserId}
-                          className="flex items-center space-x-1 px-3 py-1 rounded-full text-xs bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-blue-500/30 transition-all duration-300 disabled:opacity-50"
-                        >
-                          {unfollowingArtist === artwork.clerkUserId ? (
-                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current"></div>
-                          ) : (
-                            <span>✓ Following</span>
-                          )}
+                      ) : (
+                        <button onClick={(e) => toggleFollow(artwork.clerkUserId, artwork.artistName, e)} disabled={togglingFollow === artwork.clerkUserId} className="flex items-center space-x-1 px-3 py-1 rounded-full text-xs bg-white/10 text-gray-300 border border-white/20 hover:bg-white/20 hover:text-white transition-all duration-300 disabled:opacity-50">
+                          {togglingFollow === artwork.clerkUserId ? <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current"></div> : <span>+ Follow</span>}
                         </button>
                       )}
                     </div>
@@ -884,6 +491,7 @@ const rollbackFollowUpdate = (artistId) => {
                 <p className="text-gray-300 text-sm mb-4 line-clamp-2">{artwork.description}</p>
                 <div className="flex justify-between items-center">
                   <button
+                    type="button"
                     onClick={(e) => handleLike(artwork._id, e)}
                     disabled={likingArtwork === artwork._id || !user}
                     className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all duration-300 ${artwork.hasLiked
@@ -911,21 +519,21 @@ const rollbackFollowUpdate = (artistId) => {
         {filteredArtworks.length === 0 && !loading && !recommendationsLoading && (
           <div className="text-center py-12">
             <div className="text-6xl mb-4 opacity-50">
-              {activeTab === 'recommended' ? '🎯' : 
-               activeTab === 'following' ? '👥' : '🎨'}
+              {activeTab === 'recommended' ? '🎯' :
+                activeTab === 'following' ? '👥' : '🎨'}
             </div>
             <h3 className="text-xl font-bold text-white mb-2">
               {activeTab === 'recommended' ? 'No Recommendations Yet' :
-               activeTab === 'following' ? 'Not Following Any Artists' :
-               'No Artworks Found'}
+                activeTab === 'following' ? 'Not Following Any Artists' :
+                  'No Artworks Found'}
             </h3>
             <p className="text-gray-400 mb-6">
               {activeTab === 'recommended' ? 'Like some artworks to get personalized recommendations' :
-               activeTab === 'following' ? 'Follow artists to see their latest creations here' :
-               'Try adjusting your search terms or browse all artworks'}
+                activeTab === 'following' ? 'Follow artists to see their latest creations here' :
+                  'Try adjusting your search terms or browse all artworks'}
             </p>
             {activeTab === 'recommended' && (
-              <button 
+              <button
                 onClick={() => setActiveTab('all')}
                 className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-full font-semibold hover:shadow-lg hover:shadow-purple-500/30 transition-all duration-300"
               >
@@ -933,7 +541,7 @@ const rollbackFollowUpdate = (artistId) => {
               </button>
             )}
             {activeTab === 'following' && (
-              <button 
+              <button
                 onClick={() => setActiveTab('all')}
                 className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-full font-semibold hover:shadow-lg hover:shadow-purple-500/30 transition-all duration-300"
               >
@@ -991,38 +599,13 @@ const rollbackFollowUpdate = (artistId) => {
                           {user && selectedArtwork.clerkUserId !== user.id && (
                             <div className="flex space-x-2">
                               {/* Follow Button */}
-                              {!selectedArtwork.isFollowing && (
-                                <button
-                                  onClick={(e) => handleFollowArtist(selectedArtwork.clerkUserId, selectedArtwork.artistName, e)}
-                                  disabled={followingArtist === selectedArtwork.clerkUserId}
-                                  className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-white/10 text-gray-300 border border-white/20 hover:bg-white/20 hover:text-white transition-all duration-300 disabled:opacity-50"
-                                >
-                                  {followingArtist === selectedArtwork.clerkUserId ? (
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
-                                  ) : (
-                                    <>
-                                      <span>+</span>
-                                      <span>Follow</span>
-                                    </>
-                                  )}
+                              {selectedArtwork.isFollowing ? (
+                                <button onClick={(e) => toggleFollow(selectedArtwork.clerkUserId, selectedArtwork.artistName, e)} disabled={togglingFollow === selectedArtwork.clerkUserId} className="...">
+                                  {togglingFollow === selectedArtwork.clerkUserId ? <div className="..."></div> : <span>✓ Following</span>}
                                 </button>
-                              )}
-
-                              {/* Unfollow Button */}
-                              {selectedArtwork.isFollowing && (
-                                <button
-                                  onClick={(e) => handleUnfollowArtist(selectedArtwork.clerkUserId, selectedArtwork.artistName, e)}
-                                  disabled={unfollowingArtist === selectedArtwork.clerkUserId}
-                                  className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-blue-500/30 transition-all duration-300 disabled:opacity-50"
-                                >
-                                  {unfollowingArtist === selectedArtwork.clerkUserId ? (
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
-                                  ) : (
-                                    <>
-                                      <span>✓</span>
-                                      <span>Following</span>
-                                    </>
-                                  )}
+                              ) : (
+                                <button onClick={(e) => toggleFollow(selectedArtwork.clerkUserId, selectedArtwork.artistName, e)} disabled={togglingFollow === selectedArtwork.clerkUserId} className="...">
+                                  {togglingFollow === selectedArtwork.clerkUserId ? <div className="..."></div> : <span>+ Follow</span>}
                                 </button>
                               )}
                             </div>
@@ -1065,6 +648,7 @@ const rollbackFollowUpdate = (artistId) => {
                     <div className="modal-stats">
                       <div className="modal-actions">
                         <button
+                          type="button"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleLike(selectedArtwork._id, e);
