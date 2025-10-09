@@ -1,77 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { Link } from 'react-router-dom';
-import { artworkAPI } from "../../utils/api";
 
 const Profile = () => {
   const { user, isLoaded } = useUser();
-  const [userStats, setUserStats] = useState({
-    artworks: 0,
-    followers: 0,
-    following: 0,
-    collections: 0,
-    totalLikes: 0,
-    totalViews: 0
-  });
-  const [recentArtworks, setRecentArtworks] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (isLoaded && user) {
-      fetchUserData();
+    if (isLoaded) {
+      setLoading(false);
     }
-  }, [isLoaded, user]);
-
-  const fetchUserData = async () => {
-  try {
-    if (user) {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
-      const userResponse = await fetch(`${backendUrl}/api/users/clerk/${user.id}`);
-      
-      if (userResponse.ok) {
-        const userData = await userResponse.json();
-        setUserStats({
-          artworks: userData.stats?.artworksCount || 0,
-          followers: userData.stats?.followersCount || 0,
-          following: userData.stats?.followingCount || 0,
-          collections: userData.stats?.collectionsCount || 0,
-          totalLikes: userData.stats?.totalLikes || 0,
-          totalViews: userData.stats?.totalViews || 0
-        });
-      }
-
-      // Fetch user's artworks to calculate total views
-      const artworksResponse = await fetch(`${backendUrl}/api/artworks/user/${user.id}`);
-      if (artworksResponse.ok) {
-        const artworksData = await artworksResponse.json();
-        const totalViews = artworksData.artworks?.reduce((sum, art) => sum + (art.views || 0), 0) || 0;
-        setUserStats(prev => ({ ...prev, totalViews }));
-      }
-    }
-  } catch (error) {
-    console.error('Error fetching user data:', error);
-  }
-};
-
-// Update stats array to include total views
-const stats = [
-  { label: "Artworks", value: userStats.artworks, icon: "🖼️" },
-  { label: "Followers", value: userStats.followers.toLocaleString(), icon: "👥" },
-  { label: "Following", value: userStats.following, icon: "👤" },
-  { label: "Collections", value: userStats.collections, icon: "📚" },
-  { label: "Total Likes", value: userStats.totalLikes.toLocaleString(), icon: "❤️" },
-  { label: "Total Views", value: userStats.totalViews.toLocaleString(), icon: "👁️" },
-];
+  }, [isLoaded]);
 
   // Get user initial for avatar fallback
   const getUserInitial = () => {
     if (user?.firstName) {
       return user.firstName.charAt(0).toUpperCase();
     }
-    return 'U';
+    return user?.username?.charAt(0).toUpperCase() || 'U';
   };
 
-  if (!isLoaded) {
+  if (!isLoaded || loading) {
     return (
       <div className="pt-20 pb-10 px-6">
         <div className="container mx-auto text-center">
@@ -110,8 +59,17 @@ const stats = [
               <img 
                 src={user.imageUrl} 
                 alt="Profile" 
-                className="w-32 h-32 rounded-full border-4 border-white/20 shadow-2xl"
+                className="w-32 h-32 rounded-full border-4 border-white/20 shadow-2xl object-cover"
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                  e.target.nextSibling.style.display = 'flex';
+                }}
               />
+              <div 
+                className="w-32 h-32 rounded-full border-4 border-white/20 shadow-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-4xl font-bold hidden"
+              >
+                {getUserInitial()}
+              </div>
               <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-green-500 rounded-full border-2 border-white flex items-center justify-center">
                 <span className="text-white text-xs">✓</span>
               </div>
@@ -122,19 +80,26 @@ const stats = [
               <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-4">
                 <div>
                   <h1 className="text-4xl font-bold text-white mb-2">
-                    {user.fullName || 'User Name'}
+                    {user.fullName || `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'User Name'}
                   </h1>
                   <p className="text-gray-400 text-lg mb-2">
-                    @{user.username || user.primaryEmailAddress?.emailAddress?.split('@')[0]}
+                    @{user.username || user.primaryEmailAddress?.emailAddress?.split('@')[0] || 'user'}
                   </p>
                   <p className="text-gray-300 max-w-2xl">
-                    {user.publicMetadata?.bio || 'Digital artist creating dreams and realities through pixels and imagination.'}
+                    {user.publicMetadata?.bio || 'No bio added yet.'}
                   </p>
                 </div>
-                <div className="mt-4 lg:mt-0">
+                <div className="mt-4 lg:mt-0 flex flex-col space-y-2">
                   <Link 
-                    to="/dashboard"
-                    className="bg-white/20 hover:bg-white/30 text-white px-6 py-3 rounded-full font-semibold transition-all duration-300 border border-white/20 hover:border-white/40 flex items-center space-x-2"
+                    to="/user-profile"
+                    className="bg-white/20 hover:bg-white/30 text-white px-6 py-3 rounded-full font-semibold transition-all duration-300 border border-white/20 hover:border-white/40 flex items-center space-x-2 justify-center"
+                  >
+                    <span>👁️</span>
+                    <span>View Public Profile</span>
+                  </Link>
+                  <Link 
+                    to="/edit-profile"
+                    className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-full font-semibold hover:shadow-lg hover:shadow-purple-500/30 transition-all duration-300 flex items-center space-x-2 justify-center"
                   >
                     <span>⚙️</span>
                     <span>Edit Profile</span>
@@ -143,133 +108,164 @@ const stats = [
               </div>
 
               {/* Contact Info */}
-              <div className="flex flex-wrap gap-4 mt-4 text-gray-300">
+              <div className="flex flex-wrap gap-4 mt-6 text-gray-300">
                 {user.primaryEmailAddress && (
-                  <div className="flex items-center space-x-2 bg-white/10 px-3 py-1 rounded-full">
+                  <div className="flex items-center space-x-2 bg-white/10 px-4 py-2 rounded-full">
                     <span>📧</span>
                     <span className="text-sm">{user.primaryEmailAddress.emailAddress}</span>
                   </div>
                 )}
-                <div className="flex items-center space-x-2 bg-white/10 px-3 py-1 rounded-full">
+                <div className="flex items-center space-x-2 bg-white/10 px-4 py-2 rounded-full">
                   <span>📅</span>
                   <span className="text-sm">
-                    Joined {new Date(user.createdAt).toLocaleDateString()}
+                    Joined {new Date(user.createdAt).toLocaleDateString('en-US', { 
+                      year: 'numeric', 
+                      month: 'long', 
+                      day: 'numeric' 
+                    })}
                   </span>
                 </div>
                 {user.publicMetadata?.website && (
-                  <div className="flex items-center space-x-2 bg-white/10 px-3 py-1 rounded-full">
+                  <div className="flex items-center space-x-2 bg-white/10 px-4 py-2 rounded-full">
                     <span>🌐</span>
-                    <span className="text-sm">{user.publicMetadata.website}</span>
+                    <a 
+                      href={user.publicMetadata.website} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-sm hover:text-purple-300 transition-colors"
+                    >
+                      {user.publicMetadata.website}
+                    </a>
+                  </div>
+                )}
+                {user.publicMetadata?.location && (
+                  <div className="flex items-center space-x-2 bg-white/10 px-4 py-2 rounded-full">
+                    <span>📍</span>
+                    <span className="text-sm">{user.publicMetadata.location}</span>
                   </div>
                 )}
               </div>
             </div>
           </div>
-
-          {/* Stats */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mt-8">
-            {stats.map((stat, index) => (
-              <div 
-                key={index} 
-                className="bg-white/10 rounded-xl p-4 text-center backdrop-blur-sm border border-white/10 hover:border-white/20 transition-all duration-300"
-              >
-                <div className="text-2xl mb-2">{stat.icon}</div>
-                <p className="text-3xl font-bold text-white">{stat.value}</p>
-                <p className="text-gray-400 text-sm mt-1">{stat.label}</p>
-              </div>
-            ))}
-          </div>
         </div>
 
-        {/* Content Tabs */}
-        <div className="flex space-x-1 bg-white/5 rounded-2xl p-1 border border-white/10 mb-8">
-          {['Artworks', 'Collections', 'Likes', 'Activity'].map((tab) => (
-            <button
-              key={tab}
-              className={`flex-1 py-3 px-4 rounded-xl font-semibold transition-all duration-300 ${
-                tab === 'Artworks' 
-                  ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg' 
-                  : 'text-gray-300 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
+        {/* Quick Actions */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <Link 
+            to="/upload"
+            className="bg-white/5 rounded-xl p-6 border border-white/10 hover:border-purple-500/50 hover:bg-purple-500/10 transition-all duration-300 group text-center"
+          >
+            <div className="text-3xl mb-3 group-hover:scale-110 transition-transform">🎨</div>
+            <h3 className="text-white font-semibold mb-2">Upload Artwork</h3>
+            <p className="text-gray-400 text-sm">Share your latest creation</p>
+          </Link>
+
+          <Link 
+            to="/collections"
+            className="bg-white/5 rounded-xl p-6 border border-white/10 hover:border-blue-500/50 hover:bg-blue-500/10 transition-all duration-300 group text-center"
+          >
+            <div className="text-3xl mb-3 group-hover:scale-110 transition-transform">📚</div>
+            <h3 className="text-white font-semibold mb-2">Collections</h3>
+            <p className="text-gray-400 text-sm">Organize your artworks</p>
+          </Link>
+
+          <Link 
+            to="/settings"
+            className="bg-white/5 rounded-xl p-6 border border-white/10 hover:border-green-500/50 hover:bg-green-500/10 transition-all duration-300 group text-center"
+          >
+            <div className="text-3xl mb-3 group-hover:scale-110 transition-transform">⚙️</div>
+            <h3 className="text-white font-semibold mb-2">Settings</h3>
+            <p className="text-gray-400 text-sm">Manage account preferences</p>
+          </Link>
+
+          <Link 
+            to="/saved"
+            className="bg-white/5 rounded-xl p-6 border border-white/10 hover:border-yellow-500/50 hover:bg-yellow-500/10 transition-all duration-300 group text-center"
+          >
+            <div className="text-3xl mb-3 group-hover:scale-110 transition-transform">⭐</div>
+            <h3 className="text-white font-semibold mb-2">Saved Items</h3>
+            <p className="text-gray-400 text-sm">Your favorite artworks</p>
+          </Link>
         </div>
 
-        {/* Recent Artworks */}
+        {/* Profile Information Card */}
         <div className="bg-white/5 rounded-2xl p-6 border border-white/10">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-white flex items-center">
-              <span className="mr-3">🎨</span>
-              Recent Artworks
-            </h2>
-            <Link 
-              to="/upload"
-              className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-2 rounded-full font-semibold text-sm hover:shadow-lg hover:shadow-purple-500/30 transition-all duration-300 flex items-center space-x-2"
-            >
-              <span>+</span>
-              <span>Upload New</span>
-            </Link>
-          </div>
+          <h2 className="text-2xl font-bold text-white mb-6 flex items-center">
+            <span className="mr-3">📋</span>
+            Profile Information
+          </h2>
           
-          {loading ? (
-            <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500 mx-auto"></div>
-              <p className="text-gray-300 mt-2">Loading artworks...</p>
-            </div>
-          ) : recentArtworks.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
-              {recentArtworks.map((artwork) => (
-                <div 
-                  key={artwork.id} 
-                  className="flex items-center justify-between p-4 bg-white/5 rounded-xl hover:bg-white/10 transition-all duration-300 group"
-                >
-                  <div className="flex items-center space-x-4">
-                    <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center text-white font-bold">
-                      {getUserInitial()}
-                    </div>
-                    <div>
-                      <h3 className="text-white font-semibold text-lg group-hover:text-purple-300 transition-colors">
-                        {artwork.title}
-                      </h3>
-                      <div className="flex space-x-4 text-gray-400 text-sm mt-1">
-                        <span className="flex items-center space-x-1">
-                          <span>❤️</span>
-                          <span>{artwork.likes}</span>
-                        </span>
-                        <span className="flex items-center space-x-1">
-                          <span>👁️</span>
-                          <span>{artwork.views}</span>
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex space-x-2">
-                    <button className="text-purple-400 hover:text-purple-300 text-sm font-medium px-4 py-2 bg-white/10 rounded-lg hover:bg-white/20 transition-all duration-300">
-                      Edit
-                    </button>
-                    <button className="text-gray-300 hover:text-white text-sm font-medium px-4 py-2 bg-white/10 rounded-lg hover:bg-white/20 transition-all duration-300">
-                      View
-                    </button>
-                  </div>
-                </div>
-              ))}
+              <div>
+                <label className="text-gray-400 text-sm block mb-2">Full Name</label>
+                <p className="text-white font-semibold">
+                  {user.fullName || 'Not set'}
+                </p>
+              </div>
+              <div>
+                <label className="text-gray-400 text-sm block mb-2">Username</label>
+                <p className="text-white font-semibold">
+                  @{user.username || 'Not set'}
+                </p>
+              </div>
+              <div>
+                <label className="text-gray-400 text-sm block mb-2">Email Address</label>
+                <p className="text-white">
+                  {user.primaryEmailAddress?.emailAddress || 'Not set'}
+                </p>
+              </div>
             </div>
-          ) : (
-            <div className="text-center py-12">
-              <div className="text-6xl mb-4">🎨</div>
-              <h3 className="text-xl font-bold text-white mb-2">No Artworks Yet</h3>
-              <p className="text-gray-400 mb-6">Start your artistic journey by uploading your first artwork</p>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="text-gray-400 text-sm block mb-2">Bio</label>
+                <p className="text-white">
+                  {user.publicMetadata?.bio || 'No bio added yet. Share something about yourself!'}
+                </p>
+              </div>
+              <div>
+                <label className="text-gray-400 text-sm block mb-2">Website</label>
+                <p className="text-white">
+                  {user.publicMetadata?.website ? (
+                    <a 
+                      href={user.publicMetadata.website} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-purple-300 hover:text-purple-200 transition-colors"
+                    >
+                      {user.publicMetadata.website}
+                    </a>
+                  ) : 'Not set'}
+                </p>
+              </div>
+              <div>
+                <label className="text-gray-400 text-sm block mb-2">Location</label>
+                <p className="text-white">
+                  {user.publicMetadata?.location || 'Not set'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-8 pt-6 border-t border-white/10">
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link 
-                to="/upload"
-                className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-full font-semibold hover:shadow-lg hover:shadow-purple-500/30 transition-all duration-300 inline-flex items-center space-x-2"
+                to="/edit-profile"
+                className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-8 py-3 rounded-full font-semibold hover:shadow-lg hover:shadow-purple-500/30 transition-all duration-300 flex items-center space-x-2 justify-center"
               >
-                <span>+</span>
-                <span>Upload Your First Artwork</span>
+                <span>✏️</span>
+                <span>Edit Profile Details</span>
+              </Link>
+              <Link 
+                to="/user-profile"
+                className="bg-white/10 text-white px-8 py-3 rounded-full font-semibold hover:bg-white/20 transition-all duration-300 flex items-center space-x-2 justify-center border border-white/20"
+              >
+                <span>👁️</span>
+                <span>View Public Profile</span>
               </Link>
             </div>
-          )}
+          </div>
         </div>
       </div>
     </div>

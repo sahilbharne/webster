@@ -377,114 +377,41 @@ router.get('/:id/like-status/:clerkUserId', async (req, res) => {
 
 
 
-// ADD SAMPLE ARTWORKS (for testing)
-router.post('/sample', async (req, res) => {
-  try {
-    console.log('🔄 Adding sample artworks to database...');
-    
-    // Get a user to associate with sample artworks
-    const user = await User.findOne();
-    if (!user) {
-      return res.status(400).json({ error: 'No users found. Please create a user first.' });
-    }
 
-    const sampleArtworks = [
-      {
-        title: "Sunset Mountains",
-        description: "A beautiful painting of mountains during sunset with vibrant colors painting the sky",
-        imageUrl: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80",
-        cloudinaryId: "sample_sunset_mountains",
-        category: "painting",
-        tags: ["nature", "mountains", "sunset", "landscape"],
-        price: 0,
-        userId: user._id,
-        clerkUserId: user.clerkUserId,
-        artistName: user.fullName || user.username,
-        dimensions: { width: 1920, height: 1080, unit: 'px' },
-        fileFormat: "JPEG",
-        resolution: { width: 1920, height: 1080 }
-      },
-      {
-        title: "Abstract Dreams",
-        description: "Colorful abstract artwork representing dreams and imagination",
-        imageUrl: "https://images.unsplash.com/photo-1541961017774-22349e4a1262?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80",
-        cloudinaryId: "sample_abstract_dreams",
-        category: "abstract",
-        tags: ["abstract", "colorful", "modern", "dreams"],
-        price: 25,
-        userId: user._id,
-        clerkUserId: user.clerkUserId,
-        artistName: user.fullName || user.username,
-        dimensions: { width: 1200, height: 800, unit: 'px' },
-        fileFormat: "JPEG",
-        resolution: { width: 1200, height: 800 }
-      },
-      {
-        title: "Ocean Waves",
-        description: "Powerful ocean waves crashing against rocky cliffs at golden hour",
-        imageUrl: "https://images.unsplash.com/photo-1505142468610-359e7d316be0?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80",
-        cloudinaryId: "sample_ocean_waves",
-        category: "photography",
-        tags: ["ocean", "waves", "nature", "water"],
-        price: 15,
-        userId: user._id,
-        clerkUserId: user.clerkUserId,
-        artistName: user.fullName || user.username,
-        dimensions: { width: 1600, height: 900, unit: 'px' },
-        fileFormat: "JPEG",
-        resolution: { width: 1600, height: 900 }
-      }
-    ];
-
-    const createdArtworks = await Artwork.insertMany(sampleArtworks);
-    
-    console.log(`✅ Added ${createdArtworks.length} sample artworks to database`);
-    
-    res.json({ 
-      message: 'Sample artworks added successfully!', 
-      count: createdArtworks.length,
-      artworks: createdArtworks 
-    });
-  } catch (error) {
-    console.error('❌ Error adding sample artworks:', error);
-    res.status(500).json({ error: 'Failed to add sample artworks' });
-  }
-});
 
 // COUNT view for an artwork
 
 router.post('/:id/view', async (req, res) => {
   try {
-    const { clerkUserId } = req.body; // Optional: track which user viewed
-
-    console.log('👁️ View request for artwork:', req.params.id);
+    const { clerkUserId } = req.body; // A user ID is now required to track unique views
     
     const artwork = await Artwork.findById(req.params.id);
     if (!artwork) {
-      return res.status(404).json({ 
-        success: false,
-        error: 'Artwork not found' 
-      });
+      return res.status(404).json({ success: false, error: 'Artwork not found' });
     }
 
-    // Increment views
-    const newViewCount = await artwork.incrementViews();
-    
-    console.log(`✅ View counted for "${artwork.title}". Total views: ${newViewCount}`);
+    let message = 'View already recorded for this user.';
+
+    // Only add the view if the user hasn't viewed it before
+    if (clerkUserId && !artwork.viewedBy.includes(clerkUserId)) {
+        artwork.viewedBy.push(clerkUserId);
+        await artwork.save();
+        
+        message = 'View recorded successfully';
+    } else if (!clerkUserId) {
+        // Handle anonymous views if you wish, but we won't count them here
+        message = 'Anonymous view not counted.';
+    }
 
     res.json({
       success: true,
-      views: newViewCount,
-      message: 'View counted successfully'
+      views: artwork.viewedBy.length,
+      message: message
     });
 
   } catch (error) {
     console.error('❌ Error counting view:', error);
-    res.status(500).json({ 
-      success: false,
-      error: 'Failed to count view',
-      details: error.message 
-    });
+    res.status(500).json({ success: false, error: 'Failed to count view' });
   }
 });
 
@@ -494,7 +421,8 @@ router.get('/user/:clerkUserId', async (req, res) => {
     const { clerkUserId } = req.params;
     
     const artworks = await Artwork.find({ clerkUserId })
-      .select('title imageUrl artistName tags createdAt likes views')
+      // ✅ FIX: Removed 'views' from this line. It will be added automatically.
+      .select('title imageUrl artistName tags createdAt likes viewedBy') 
       .sort({ createdAt: -1 });
 
     res.json({

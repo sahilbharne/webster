@@ -15,6 +15,7 @@ import Collections from './pages/Collections/Collections'
 import CollectionDetail from './pages/CollectionDetail/CollectionDetail'
 import CreateCollection from './pages/CreateCollection/CreateCollection'
 import EditCollection from './pages/EditCollection/EditCollection'
+import EditProfile from './pages/EditProfile/EditProfile'
 
 // Components
 import Header from './components/Header/Header'
@@ -41,6 +42,7 @@ function App() {
               <Route path="/collections/create" element={<CreateCollection />} />
               <Route path="/collections/:id" element={<CollectionDetail />} />
               <Route path="/collections/:id/edit" element={<EditCollection />} />
+              <Route path="/edit-profile" element={<EditProfile />} />
               {/* Fallback route for signed-in users */}
               <Route path="*" element={<Dashboard />} />
             </Routes>

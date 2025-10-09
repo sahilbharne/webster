@@ -49,155 +49,88 @@ const Dashboard = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const fetchDashboardData = async () => {
+  // In Dashboard.jsx
+
+const fetchDashboardData = async () => {
     try {
-      setLoading(true);
-      console.log('🔄 Fetching dashboard data for user:', user.id);
+        setLoading(true);
+        setError("");
+        console.log('🔄 Fetching dashboard data for user:', user.id);
 
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
-      
-      let artworksData = [];
-      let collectionsData = [];
-      let followersData = [];
-      let followingData = [];
+        // Use Promise.all to run all fetch requests in parallel for speed
+        const [
+            userResponse,
+            artworksResponse,
+            collectionsResponse,
+            followersResponse,
+            followingResponse
+        ] = await Promise.all([
+            fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/users/clerk/${user.id}`),
+            fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/artworks/user/${user.id}`),
+            collectionService.getUserCollections(user.id),
+            fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/follow/followers/${user.id}`),
+            fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/follow/following/${user.id}`),
+        ]);
 
-      // Fetch user data with stats (like Profile.jsx)
-      try {
-        const userResponse = await fetch(`${backendUrl}/api/users/clerk/${user.id}`);
+        // Now that all data is fetched, process it
+        let artworksData = [], collectionsData = [], followersData = [], followingData = [];
+        let statsUpdate = {};
+
+        // Process User & Stats
         if (userResponse.ok) {
-          const userData = await userResponse.json();
-          console.log('✅ User data with stats:', userData);
-          
-          // Update stats from user data
-          setStats(prev => ({
-            ...prev,
-            totalArtworks: userData.stats?.artworksCount || 0,
-            totalFollowers: userData.stats?.followersCount || 0,
-            totalFollowing: userData.stats?.followingCount || 0,
-            totalCollections: userData.stats?.collectionsCount || 0,
-            totalLikes: userData.stats?.totalLikes || 0
-          }));
+            const userData = await userResponse.json();
+            statsUpdate = {
+                totalArtworks: userData.stats?.artworksCount || 0,
+                totalFollowers: userData.stats?.followersCount || 0,
+                totalFollowing: userData.stats?.followingCount || 0,
+                totalCollections: userData.stats?.collectionsCount || 0,
+                totalLikes: userData.stats?.totalLikes || 0,
+            };
         }
-      } catch (userError) {
-        console.error('❌ Error fetching user stats:', userError);
-      }
 
-      // Fetch user's artworks (like Profile.jsx)
-      try {
-        const artworksResponse = await fetch(`${backendUrl}/api/artworks/user/${user.id}`);
+        // Process Artworks
         if (artworksResponse.ok) {
-          const artworksData = await artworksResponse.json();
-          console.log('✅ User artworks:', artworksData);
-          
-          // Calculate total views from artworks
-          const totalViews = artworksData.artworks?.reduce((sum, art) => sum + (art.views || 0), 0) || 0;
-          const totalLikes = artworksData.artworks?.reduce((sum, art) => sum + (art.likesCount || art.likes?.length || 0), 0) || 0;
-          
-          setUserArtworks(artworksData.artworks || []);
-          setStats(prev => ({
-            ...prev,
-            totalViews: totalViews,
-            totalLikes: totalLikes,
-            totalArtworks: artworksData.artworks?.length || 0
-          }));
+            const artData = await artworksResponse.json();
+            artworksData = artData.artworks || [];
+            const totalViews = artworksData.reduce((sum, art) => sum + (art.views || 0), 0);
+            statsUpdate.totalViews = totalViews;
+            setUserArtworks(artworksData);
         }
-      } catch (artworkError) {
-        console.error('❌ Error fetching user artworks:', artworkError);
-      }
 
-      // Fetch user's collections
-      try {
-        const collectionsResponse = await collectionService.getUserCollections(user.id);
-        collectionsData = collectionsResponse.collections || [];
-        console.log('✅ User collections:', collectionsData);
-        
-        setUserCollections(collectionsData);
-        setStats(prev => ({
-          ...prev,
-          totalCollections: collectionsData.length
-        }));
-      } catch (collectionError) {
-        console.error('❌ Error fetching collections:', collectionError);
-      }
+        // Process Collections
+        if (collectionsResponse.collections) {
+            collectionsData = collectionsResponse.collections || [];
+            setUserCollections(collectionsData);
+        }
 
-      // Fetch user's followers (using the same pattern as Profile.jsx)
-      try {
-        const followersResponse = await fetch(`${backendUrl}/api/follow/followers/${user.id}`);
+        // Process Followers
         if (followersResponse.ok) {
-          const followersData = await followersResponse.json();
-          console.log('✅ Followers data:', followersData);
-          
-          // Handle different response formats
-          let followersArray = [];
-          if (Array.isArray(followersData.followers)) {
-            followersArray = followersData.followers;
-          } else if (Array.isArray(followersData)) {
-            followersArray = followersData;
-          } else if (followersData.data && Array.isArray(followersData.data)) {
-            followersArray = followersData.data;
-          }
-          
-          setFollowers(followersArray);
-          setStats(prev => ({
-            ...prev,
-            totalFollowers: followersArray.length
-          }));
+            const followersJson = await followersResponse.json();
+            followersData = followersJson.followers || [];
+            setFollowers(followersData);
         }
-      } catch (followersError) {
-        console.error('❌ Error fetching followers:', followersError);
-      }
 
-      // Fetch who the user is following
-      try {
-        const followingResponse = await fetch(`${backendUrl}/api/follow/following/${user.id}`);
+        // Process Following
         if (followingResponse.ok) {
-          const followingData = await followingResponse.json();
-          console.log('✅ Following data:', followingData);
-          
-          // Handle different response formats
-          let followingArray = [];
-          if (Array.isArray(followingData.following)) {
-            followingArray = followingData.following;
-          } else if (Array.isArray(followingData)) {
-            followingArray = followingData;
-          } else if (followingData.data && Array.isArray(followingData.data)) {
-            followingArray = followingData.data;
-          }
-          
-          setFollowing(followingArray);
-          setStats(prev => ({
-            ...prev,
-            totalFollowing: followingArray.length
-          }));
+            const followingJson = await followingResponse.json();
+            followingData = followingJson.following || [];
+            setFollowing(followingData);
         }
-      } catch (followingError) {
-        console.error('❌ Error fetching following:', followingError);
-      }
 
-      // Generate real-time activities
-      generateRealTimeActivities(userArtworks, userCollections, followers);
-      setError("");
+        // Set all stats at once
+        setStats(prev => ({ ...prev, ...statsUpdate }));
+
+        // ✅ FIX: Call this function ONLY after all data has been fetched and set
+        generateRealTimeActivities(artworksData, collectionsData, followersData);
 
     } catch (err) {
-      console.error("❌ Error fetching dashboard data:", err);
-      setError("Failed to load dashboard data");
-      setUserArtworks([]);
-      setUserCollections([]);
-      setFollowers([]);
-      setFollowing([]);
-      setStats({
-        totalArtworks: 0,
-        totalLikes: 0,
-        totalViews: 0,
-        totalCollections: 0,
-        totalFollowers: 0,
-        totalFollowing: 0
-      });
-      setActivities(getWelcomeActivities());
+        console.error("❌ Error fetching dashboard data:", err);
+        setError("Failed to load dashboard data");
+        // Reset state on error
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
-  };
+};
 
   // Generate real-time activities with proper timestamp handling
   const generateRealTimeActivities = (artworks, collections, followers) => {

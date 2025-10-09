@@ -76,7 +76,7 @@ const Discover = () => {
           }
 
 
-          return { ...artwork, isFollowing, hasLiked, likesCount, views: artwork.views || 0 };
+          return { ...artwork, isFollowing, hasLiked, likesCount,  views: artwork.views ?? artwork.viewedBy?.length ?? 0 };
         })
       );
 
@@ -212,14 +212,17 @@ const Discover = () => {
     setIsModalOpen(true);
 
     try {
-      if (user) {
-        await viewService.recordView(artwork._id, user.id);
-      } else {
-        await viewService.recordView(artwork._id);
+      // We only try to record a view if a user is logged in
+      if (user?.id) {
+        const response = await viewService.recordView(artwork._id, user.id);
+        
+        // The backend now tells us the new, correct view count
+        if (response.success) {
+          updateLocalViews(artwork._id, response.views);
+        }
       }
-      updateLocalViews(artwork._id);
     } catch (error) {
-      console.error('Error recording view:', error);
+      console.error('❌ Error recording view:', error);
     }
   };
 
@@ -243,7 +246,7 @@ const Discover = () => {
           setSelectedArtwork(prev => ({ ...prev, hasLiked: liked, likesCount: likes }));
         }
 
-        
+
       }
     } catch (error) {
       console.error("Error liking artwork:", error);
@@ -287,22 +290,19 @@ const Discover = () => {
   const filteredArtworks = getFilteredArtworks();
 
 
-  const updateLocalViews = (artworkId) => {
-    setArtworks(prevArtworks =>
-      prevArtworks.map(artwork =>
-        artwork._id === artworkId
-          ? {
-            ...artwork,
-            views: (artwork.views || 0) + 1
-          }
-          : artwork
-      )
+  const updateLocalViews = (artworkId, newViewCount) => {
+    // Only update if the new view count is provided
+    if (newViewCount === undefined) return;
+
+    const updateState = (items) => items.map(artwork =>
+      artwork._id === artworkId ? { ...artwork, views: newViewCount } : artwork
     );
-    if (selectedArtwork && selectedArtwork._id === artworkId) {
-      setSelectedArtwork(prev => ({
-        ...prev,
-        views: (prev.views || 0) + 1
-      }));
+
+    setArtworks(updateState);
+    setRecommendedArtworks(updateState); // Also update recommendations
+
+    if (selectedArtwork?._id === artworkId) {
+      setSelectedArtwork(prev => ({ ...prev, views: newViewCount }));
     }
   };
 

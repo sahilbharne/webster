@@ -55,10 +55,10 @@ const artworkSchema = new mongoose.Schema({
   type: String, // storing clerkUserId
   required: true
   }],
-  views: {
-    type: Number,
-    default: 0
-  },
+  viewedBy: [{
+    type: String // storing clerkUserId
+    
+  }],
   downloads: {
     type: Number,
     default: 0
@@ -155,6 +155,8 @@ artworkSchema.index({ views: -1 });
 artworkSchema.index({ price: -1 });
 artworkSchema.index({ status: 1 });
 artworkSchema.index({ isPublic: 1, status: 1 });
+artworkSchema.set('toJSON', { virtuals: true });
+artworkSchema.set('toObject', { virtuals: true });
 
 // Virtual for formatted date
 artworkSchema.virtual('formattedDate').get(function() {
@@ -167,6 +169,10 @@ artworkSchema.virtual('formattedDate').get(function() {
 
 artworkSchema.virtual('likesCount').get(function() {
   return this.likes.length;
+});
+
+artworkSchema.virtual('views').get(function() {
+  return this.viewedBy ? this.viewedBy.length : 0;
 });
 
 // Virtual for aspect ratio
@@ -197,10 +203,16 @@ artworkSchema.virtual('resolutionString').get(function() {
 });
 
 // Method to increment views
-artworkSchema.methods.incrementViews = async function() {
-  this.views += 1;
-  await this.save();
-  return this.views;
+// New version
+artworkSchema.methods.recordView = async function(clerkUserId) {
+  // If a user ID is provided and they haven't viewed it before
+  if (clerkUserId && !this.viewedBy.includes(clerkUserId)) {
+    this.viewedBy.push(clerkUserId);
+    await this.save();
+  }
+  // For anonymous users, we'll just increment a legacy view count or rely on array length
+  // For simplicity, we return the total number of unique viewers
+  return this.viewedBy.length;
 };
 
 // Virtual for formatted views
