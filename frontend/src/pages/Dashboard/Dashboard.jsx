@@ -4,6 +4,7 @@ import { artworkAPI } from "../../utils/api";
 import { likeService } from "../../services/likeService";
 import { viewService } from "../../services/viewService";
 import { collectionService } from "../../services/collectionService";
+import { followService } from "../../services/followService";
 import { useNavigate } from "react-router-dom";
 
 const Dashboard = () => {
@@ -11,13 +12,17 @@ const Dashboard = () => {
   const { user } = useUser();
   const [userArtworks, setUserArtworks] = useState([]);
   const [userCollections, setUserCollections] = useState([]);
+  const [followers, setFollowers] = useState([]);
+  const [following, setFollowing] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [stats, setStats] = useState({
     totalArtworks: 0,
     totalLikes: 0,
     totalViews: 0,
-    totalCollections: 0
+    totalCollections: 0,
+    totalFollowers: 0,
+    totalFollowing: 0
   });
 
   // Modal state
@@ -39,7 +44,7 @@ const Dashboard = () => {
   useEffect(() => {
     const interval = setInterval(() => {
       setLastUpdate(Date.now());
-    }, 60000); // Update every minute
+    }, 60000);
 
     return () => clearInterval(interval);
   }, []);
@@ -49,51 +54,55 @@ const Dashboard = () => {
       setLoading(true);
       console.log('🔄 Fetching dashboard data for user:', user.id);
 
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      
       let artworksData = [];
       let collectionsData = [];
+      let followersData = [];
+      let followingData = [];
 
-      // Try to fetch user's artworks
+      // Fetch user data with stats (like Profile.jsx)
       try {
-        const artworksResponse = await artworkAPI.getUserArtworks(user.id);
-        console.log('📦 Artworks API response:', artworksResponse);
-        
-        if (Array.isArray(artworksResponse.data)) {
-          artworksData = artworksResponse.data;
-        } else if (artworksResponse.data && Array.isArray(artworksResponse.data.artworks)) {
-          artworksData = artworksResponse.data.artworks;
-        } else if (artworksResponse.data && Array.isArray(artworksResponse.data.data)) {
-          artworksData = artworksResponse.data.data;
-        } else {
-          artworksData = artworksResponse.data || [];
+        const userResponse = await fetch(`${backendUrl}/api/users/clerk/${user.id}`);
+        if (userResponse.ok) {
+          const userData = await userResponse.json();
+          console.log('✅ User data with stats:', userData);
+          
+          // Update stats from user data
+          setStats(prev => ({
+            ...prev,
+            totalArtworks: userData.stats?.artworksCount || 0,
+            totalFollowers: userData.stats?.followersCount || 0,
+            totalFollowing: userData.stats?.followingCount || 0,
+            totalCollections: userData.stats?.collectionsCount || 0,
+            totalLikes: userData.stats?.totalLikes || 0
+          }));
         }
+      } catch (userError) {
+        console.error('❌ Error fetching user stats:', userError);
+      }
 
-        console.log('✅ User artworks loaded:', artworksData);
+      // Fetch user's artworks (like Profile.jsx)
+      try {
+        const artworksResponse = await fetch(`${backendUrl}/api/artworks/user/${user.id}`);
+        if (artworksResponse.ok) {
+          const artworksData = await artworksResponse.json();
+          console.log('✅ User artworks:', artworksData);
+          
+          // Calculate total views from artworks
+          const totalViews = artworksData.artworks?.reduce((sum, art) => sum + (art.views || 0), 0) || 0;
+          const totalLikes = artworksData.artworks?.reduce((sum, art) => sum + (art.likesCount || art.likes?.length || 0), 0) || 0;
+          
+          setUserArtworks(artworksData.artworks || []);
+          setStats(prev => ({
+            ...prev,
+            totalViews: totalViews,
+            totalLikes: totalLikes,
+            totalArtworks: artworksData.artworks?.length || 0
+          }));
+        }
       } catch (artworkError) {
         console.error('❌ Error fetching user artworks:', artworkError);
-        // Fallback: fetch all artworks and filter by user
-        try {
-          console.log('🔄 Trying fallback: fetching all artworks...');
-          const allResponse = await artworkAPI.getAll();
-          let allArtworks = [];
-          
-          if (Array.isArray(allResponse.data)) {
-            allArtworks = allResponse.data;
-          } else if (allResponse.data && Array.isArray(allResponse.data.artworks)) {
-            allArtworks = allResponse.data.artworks;
-          } else if (allResponse.data && Array.isArray(allResponse.data.data)) {
-            allArtworks = allResponse.data.data;
-          } else {
-            allArtworks = allResponse.data || [];
-          }
-
-          artworksData = allArtworks.filter(artwork => 
-            artwork.clerkUserId === user.id
-          );
-          console.log('✅ Fallback - Filtered user artworks:', artworksData);
-        } catch (fallbackError) {
-          console.error('❌ Fallback also failed:', fallbackError);
-          artworksData = [];
-        }
       }
 
       // Fetch user's collections
@@ -101,31 +110,72 @@ const Dashboard = () => {
         const collectionsResponse = await collectionService.getUserCollections(user.id);
         collectionsData = collectionsResponse.collections || [];
         console.log('✅ User collections:', collectionsData);
+        
+        setUserCollections(collectionsData);
+        setStats(prev => ({
+          ...prev,
+          totalCollections: collectionsData.length
+        }));
       } catch (collectionError) {
         console.error('❌ Error fetching collections:', collectionError);
-        collectionsData = [];
       }
 
-      // Calculate stats
-      const totalLikes = artworksData.reduce((total, artwork) => 
-        total + (artwork.likesCount || artwork.likes?.length || 0), 0
-      );
-      const totalViews = artworksData.reduce((total, artwork) => 
-        total + (artwork.views || 0), 0
-      );
+      // Fetch user's followers (using the same pattern as Profile.jsx)
+      try {
+        const followersResponse = await fetch(`${backendUrl}/api/follow/followers/${user.id}`);
+        if (followersResponse.ok) {
+          const followersData = await followersResponse.json();
+          console.log('✅ Followers data:', followersData);
+          
+          // Handle different response formats
+          let followersArray = [];
+          if (Array.isArray(followersData.followers)) {
+            followersArray = followersData.followers;
+          } else if (Array.isArray(followersData)) {
+            followersArray = followersData;
+          } else if (followersData.data && Array.isArray(followersData.data)) {
+            followersArray = followersData.data;
+          }
+          
+          setFollowers(followersArray);
+          setStats(prev => ({
+            ...prev,
+            totalFollowers: followersArray.length
+          }));
+        }
+      } catch (followersError) {
+        console.error('❌ Error fetching followers:', followersError);
+      }
 
-      setStats({
-        totalArtworks: artworksData.length,
-        totalLikes,
-        totalViews,
-        totalCollections: collectionsData.length
-      });
-
-      setUserArtworks(artworksData);
-      setUserCollections(collectionsData);
+      // Fetch who the user is following
+      try {
+        const followingResponse = await fetch(`${backendUrl}/api/follow/following/${user.id}`);
+        if (followingResponse.ok) {
+          const followingData = await followingResponse.json();
+          console.log('✅ Following data:', followingData);
+          
+          // Handle different response formats
+          let followingArray = [];
+          if (Array.isArray(followingData.following)) {
+            followingArray = followingData.following;
+          } else if (Array.isArray(followingData)) {
+            followingArray = followingData;
+          } else if (followingData.data && Array.isArray(followingData.data)) {
+            followingArray = followingData.data;
+          }
+          
+          setFollowing(followingArray);
+          setStats(prev => ({
+            ...prev,
+            totalFollowing: followingArray.length
+          }));
+        }
+      } catch (followingError) {
+        console.error('❌ Error fetching following:', followingError);
+      }
 
       // Generate real-time activities
-      generateRealTimeActivities(artworksData, collectionsData);
+      generateRealTimeActivities(userArtworks, userCollections, followers);
       setError("");
 
     } catch (err) {
@@ -133,11 +183,15 @@ const Dashboard = () => {
       setError("Failed to load dashboard data");
       setUserArtworks([]);
       setUserCollections([]);
+      setFollowers([]);
+      setFollowing([]);
       setStats({
         totalArtworks: 0,
         totalLikes: 0,
         totalViews: 0,
-        totalCollections: 0
+        totalCollections: 0,
+        totalFollowers: 0,
+        totalFollowing: 0
       });
       setActivities(getWelcomeActivities());
     } finally {
@@ -146,7 +200,7 @@ const Dashboard = () => {
   };
 
   // Generate real-time activities with proper timestamp handling
-  const generateRealTimeActivities = (artworks, collections) => {
+  const generateRealTimeActivities = (artworks, collections, followers) => {
     const newActivities = [];
     const now = Date.now();
 
@@ -156,16 +210,13 @@ const Dashboard = () => {
     const recentArtworks = artworks.slice(0, 2);
     recentArtworks.forEach(artwork => {
       try {
-        // Convert createdAt to timestamp safely
         let timestamp;
         if (artwork.createdAt) {
           timestamp = new Date(artwork.createdAt).getTime();
           if (isNaN(timestamp)) {
-            console.warn('❌ Invalid artwork timestamp, using current time:', artwork.createdAt);
             timestamp = now;
           }
         } else {
-          console.warn('❌ Missing artwork createdAt, using current time');
           timestamp = now;
         }
 
@@ -176,7 +227,6 @@ const Dashboard = () => {
           icon: '🎨',
           type: 'artwork_upload'
         });
-        console.log(`✅ Added artwork activity: ${artwork.title}`, timestamp);
       } catch (error) {
         console.error('Error processing artwork activity:', error);
       }
@@ -186,16 +236,13 @@ const Dashboard = () => {
     const recentCollections = collections.slice(0, 2);
     recentCollections.forEach(collection => {
       try {
-        // Convert createdAt to timestamp safely
         let timestamp;
         if (collection.createdAt) {
           timestamp = new Date(collection.createdAt).getTime();
           if (isNaN(timestamp)) {
-            console.warn('❌ Invalid collection timestamp, using current time:', collection.createdAt);
             timestamp = now;
           }
         } else {
-          console.warn('❌ Missing collection createdAt, using current time');
           timestamp = now;
         }
 
@@ -206,9 +253,24 @@ const Dashboard = () => {
           icon: '📁',
           type: 'collection_create'
         });
-        console.log(`✅ Added collection activity: ${collection.name}`, timestamp);
       } catch (error) {
         console.error('Error processing collection activity:', error);
+      }
+    });
+
+    // Add recent followers
+    const recentFollowers = followers.slice(0, 2);
+    recentFollowers.forEach(follower => {
+      try {
+        newActivities.push({
+          id: `follower-${follower._id}`,
+          action: `${formatFollowerName(follower)} started following you`,
+          timestamp: now - Math.floor(Math.random() * 86400000),
+          icon: '👤',
+          type: 'new_follower'
+        });
+      } catch (error) {
+        console.error('Error processing follower activity:', error);
       }
     });
 
@@ -216,7 +278,6 @@ const Dashboard = () => {
     if (newActivities.length === 0) {
       const welcomeActivities = getWelcomeActivities();
       newActivities.push(...welcomeActivities);
-      console.log('✅ Added welcome activities');
     }
 
     // Sort by timestamp (newest first) and take latest 4
@@ -224,30 +285,21 @@ const Dashboard = () => {
       .sort((a, b) => b.timestamp - a.timestamp)
       .slice(0, 4);
 
-    console.log('📊 Final activities:', sortedActivities.map(a => ({
-      action: a.action,
-      timestamp: a.timestamp,
-      formatted: formatRealTime(a.timestamp)
-    })));
-
     setActivities(sortedActivities);
   };
 
   // Real-time timestamp formatting
   const formatRealTime = (timestamp) => {
     try {
-      // Ensure timestamp is a valid number
       const timestampNum = typeof timestamp === 'string' ? new Date(timestamp).getTime() : timestamp;
       
       if (isNaN(timestampNum)) {
-        console.warn('Invalid timestamp:', timestamp);
         return 'Recently';
       }
 
       const now = Date.now();
       const diff = now - timestampNum;
       
-      // Handle future timestamps (shouldn't happen, but just in case)
       if (diff < 0) {
         return 'Just now';
       }
@@ -269,7 +321,6 @@ const Dashboard = () => {
         return `${days}d ago`;
       }
     } catch (error) {
-      console.error('Error formatting time:', error, timestamp);
       return 'Recently';
     }
   };
@@ -281,28 +332,28 @@ const Dashboard = () => {
       {
         id: 'welcome-1',
         action: 'Welcome to Grand Gallery!',
-        timestamp: now - 120000, // 2 minutes ago
+        timestamp: now - 120000,
         icon: '🎉',
         type: 'welcome'
       },
       {
         id: 'welcome-2',
         action: 'Upload your first artwork to get started',
-        timestamp: now - 60000, // 1 minute ago
+        timestamp: now - 60000,
         icon: '🎨',
         type: 'tip'
       },
       {
         id: 'welcome-3',
         action: 'Create collections to organize your work',
-        timestamp: now - 30000, // 30 seconds ago
+        timestamp: now - 30000,
         icon: '📁',
         type: 'tip'
       },
       {
         id: 'welcome-4',
         action: 'Explore artwork from other artists',
-        timestamp: now, // just now
+        timestamp: now,
         icon: '🔍',
         type: 'tip'
       }
@@ -320,7 +371,7 @@ const Dashboard = () => {
     };
 
     setActivities(prev => {
-      const updated = [newActivity, ...prev].slice(0, 4); // Keep only latest 4
+      const updated = [newActivity, ...prev].slice(0, 4);
       return updated;
     });
   };
@@ -338,15 +389,31 @@ const Dashboard = () => {
 
     try {
       const result = await likeService.toggleLike(artworkId, user.id);
+      
+      let success, liked, likesCount;
 
-      if (result.success) {
+      if (result && result.success) {
+        success = result.success;
+        liked = result.liked;
+        likesCount = result.likes;
+      } else if (result && result.data && result.data.success) {
+        success = result.data.success;
+        liked = result.data.liked;
+        likesCount = result.data.likes;
+      } else if (result && result.data) {
+        success = true;
+        liked = result.data.liked;
+        likesCount = result.data.likes;
+      }
+
+      if (success) {
         setUserArtworks(prevArtworks =>
           prevArtworks.map(artwork =>
             artwork._id === artworkId
               ? {
                 ...artwork,
-                hasLiked: result.liked,
-                likesCount: result.likes
+                hasLiked: liked,
+                likesCount: likesCount
               }
               : artwork
           )
@@ -354,12 +421,19 @@ const Dashboard = () => {
 
         setStats(prev => ({
           ...prev,
-          totalLikes: result.liked ? prev.totalLikes + 1 : prev.totalLikes - 1
+          totalLikes: liked ? prev.totalLikes + 1 : prev.totalLikes - 1
         }));
 
-        // Add activity for like/unlike
+        if (selectedArtwork && selectedArtwork._id === artworkId) {
+          setSelectedArtwork(prev => ({
+            ...prev,
+            hasLiked: liked,
+            likesCount: likesCount
+          }));
+        }
+
         const artwork = userArtworks.find(a => a._id === artworkId);
-        if (artwork && result.liked) {
+        if (artwork && liked) {
           addNewActivity(`You liked '${artwork.title}'`, '❤️', 'artwork_like');
         }
       }
@@ -376,21 +450,16 @@ const Dashboard = () => {
     setSelectedArtwork(artwork);
     setIsModalOpen(true);
 
-    // Record view count
     try {
-      console.log('👁️ Recording view for artwork:', artwork._id);
       let viewResult;
       if (user) {
         viewResult = await viewService.recordView(artwork._id, user.id);
       } else {
         viewResult = await viewService.recordView(artwork._id);
       }
-      console.log('✅ View recorded:', viewResult);
       
-      // Update local views count
       updateLocalViews(artwork._id);
 
-      // Add view activity (only for others' artworks)
       if (artwork.clerkUserId !== user.id) {
         addNewActivity(`You viewed '${artwork.title}'`, '👁️', 'artwork_view');
       }
@@ -401,8 +470,6 @@ const Dashboard = () => {
   };
 
   const updateLocalViews = (artworkId) => {
-    console.log('🔄 Updating local views for:', artworkId);
-    
     setUserArtworks(prevArtworks =>
       prevArtworks.map(artwork =>
         artwork._id === artworkId
@@ -425,8 +492,6 @@ const Dashboard = () => {
         views: (prev.views || 0) + 1
       }));
     }
-    
-    console.log('✅ Local views updated');
   };
 
   const closeModal = () => {
@@ -463,6 +528,15 @@ const Dashboard = () => {
     }
   };
 
+  // Format follower name (same as Profile.jsx)
+  const formatFollowerName = (follower) => {
+    if (follower.username) return follower.username;
+    if (follower.firstName && follower.lastName) return `${follower.firstName} ${follower.lastName}`;
+    if (follower.firstName) return follower.firstName;
+    if (follower.name) return follower.name;
+    return 'Anonymous User';
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black pt-20 px-4">
@@ -473,8 +547,8 @@ const Dashboard = () => {
             </h1>
             <p className="text-xl text-gray-300">Loading your data...</p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-            {[1, 2, 3, 4].map((item) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-12">
+            {[1, 2, 3, 4, 5].map((item) => (
               <div key={item} className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10 animate-pulse">
                 <div className="h-6 bg-gray-700 rounded mb-4"></div>
                 <div className="h-8 bg-gray-700 rounded mb-2"></div>
@@ -488,6 +562,7 @@ const Dashboard = () => {
   }
 
   const recentArtworks = userArtworks.slice(0, 4);
+  const recentFollowers = followers.slice(0, 5);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black pt-20 px-4">
@@ -508,8 +583,8 @@ const Dashboard = () => {
           </div>
         )}
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+        {/* Stats Grid - Updated with consistent data */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-12">
           <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10 hover:border-white/20 transition-all duration-300 hover:transform hover:scale-105 group">
             <div className="text-2xl group-hover:scale-110 transition-transform duration-300 mb-4">🎨</div>
             <h3 className="text-3xl font-bold text-white mb-2">{stats.totalArtworks}</h3>
@@ -532,6 +607,12 @@ const Dashboard = () => {
             <div className="text-2xl group-hover:scale-110 transition-transform duration-300 mb-4">👁️</div>
             <h3 className="text-3xl font-bold text-white mb-2">{stats.totalViews}</h3>
             <p className="text-gray-400 text-sm">Total Views</p>
+          </div>
+
+          <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10 hover:border-white/20 transition-all duration-300 hover:transform hover:scale-105 group">
+            <div className="text-2xl group-hover:scale-110 transition-transform duration-300 mb-4">👥</div>
+            <h3 className="text-3xl font-bold text-white mb-2">{stats.totalFollowers}</h3>
+            <p className="text-gray-400 text-sm">Followers</p>
           </div>
         </div>
 
@@ -563,6 +644,7 @@ const Dashboard = () => {
                     activity.type === 'artwork_like' ? 'bg-red-500/20 group-hover:bg-red-500/30' :
                     activity.type === 'artwork_view' ? 'bg-blue-500/20 group-hover:bg-blue-500/30' :
                     activity.type === 'collection_create' ? 'bg-purple-500/20 group-hover:bg-purple-500/30' :
+                    activity.type === 'new_follower' ? 'bg-yellow-500/20 group-hover:bg-yellow-500/30' :
                     'bg-gradient-to-r from-purple-500/20 to-pink-500/20 group-hover:from-purple-500/30 group-hover:to-pink-500/30'
                   }`}>
                     <span className="text-lg">{activity.icon}</span>
@@ -575,8 +657,8 @@ const Dashboard = () => {
                   </div>
                 </div>
                 <div className={`w-2 h-2 rounded-full animate-pulse ${
-                  Date.now() - activity.timestamp < 300000 ? 'bg-green-500' : // Less than 5 minutes
-                  Date.now() - activity.timestamp < 3600000 ? 'bg-yellow-500' : // Less than 1 hour
+                  Date.now() - activity.timestamp < 300000 ? 'bg-green-500' :
+                  Date.now() - activity.timestamp < 3600000 ? 'bg-yellow-500' :
                   'bg-gray-500'
                 }`}></div>
               </div>
@@ -585,7 +667,7 @@ const Dashboard = () => {
         </div>
 
         {/* Additional Sections */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Quick Actions */}
           <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
             <h3 className="text-xl font-bold text-white mb-4">Quick Actions</h3>
@@ -630,7 +712,7 @@ const Dashboard = () => {
                   <div 
                     key={artwork._id} 
                     className="flex items-center justify-between p-3 hover:bg-white/5 rounded-lg transition-colors cursor-pointer group"
-                    onClick={() => handleArtworkClick(artwork)}
+                    
                   >
                     <div className="flex items-center space-x-3">
                       <img 
@@ -642,10 +724,7 @@ const Dashboard = () => {
                         {artwork.title}
                       </span>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <span className="text-gray-500 text-sm">{artwork.views || 0} 👁️</span>
-                      <span className="text-gray-500 text-sm">{artwork.likesCount || 0} ❤️</span>
-                    </div>
+                    
                   </div>
                 ))
               ) : (
@@ -663,8 +742,51 @@ const Dashboard = () => {
               )}
             </div>
           </div>
-        </div>
 
+          {/* Followers Section */}
+          <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
+            <h3 className="text-xl font-bold text-white mb-4">Recent Followers</h3>
+            <div className="space-y-3">
+              {recentFollowers.length > 0 ? (
+                recentFollowers.map((follower) => (
+                  <div 
+                    key={follower._id} 
+                    className="flex items-center justify-between p-3 hover:bg-white/5 rounded-lg transition-colors group"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white font-semibold">
+                        {formatFollowerName(follower).charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <span className="text-gray-300 group-hover:text-white transition-colors">
+                          {formatFollowerName(follower)}
+                        </span>
+                        {follower.username && (
+                          <p className="text-gray-500 text-xs">@{follower.username}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-green-400 text-sm">
+                      <span className="opacity-70">Following</span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-8">
+                  <div className="text-4xl mb-2 opacity-50">👥</div>
+                  <p className="text-gray-400">No followers yet</p>
+                  <p className="text-gray-500 text-sm mt-1">Share your profile to get followers</p>
+                  <button 
+                    onClick={() => navigate('/discover')}
+                    className="text-purple-400 hover:text-purple-300 text-sm mt-3 transition-colors"
+                  >
+                    Explore Community →
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
         {/* Artwork Detail Modal */}
         {isModalOpen && selectedArtwork && (
           <div

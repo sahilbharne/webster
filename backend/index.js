@@ -10,6 +10,7 @@ import fs from 'fs';
 
 // AI Services
 import { analyzeImage } from './ai_services/vision_api_services/auto_tagger.js';
+import recommendationRoutes from './routes/recommendations.js';
 
 // Models
 import User from './models/User.js';
@@ -41,12 +42,13 @@ app.use('/api/webhooks/clerk', express.raw({ type: 'application/json' }));
 
 
 // --- 4. API ROUTES ---
-// This section must come AFTER the middleware section.
 app.use('/api/upload', uploadRoutes);
 app.use('/api/follow', followRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/artworks', artworkRoutes);
 app.use('/api/collections', collectionRoutes);
+app.use('/api/recommendations', recommendationRoutes);
+
 
 
 // --- Multer Configuration ---

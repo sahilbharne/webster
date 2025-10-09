@@ -102,13 +102,24 @@ router.get('/status/:artistId/:followerId', async (req, res) => {
   }
 });
 
-// GET /api/follow/following/:userId
+// In your follow.js backend route - make sure it returns this structure
 router.get('/following/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
     const follows = await Follow.find({ followerId: userId }).populate('followingUser');
-    const following = follows.map(f => f.followingUser).filter(Boolean); // Filter out null/deleted users
-    res.json({ success: true, following });
+    
+    const following = follows.map(f => f.followingUser).filter(Boolean);
+    
+    // ✅ RETURN THIS STRUCTURE:
+    res.json({
+      success: true,
+      following: following.map(user => ({
+        clerkUserId: user.clerkUserId, // Make sure this field exists
+        name: user.name,
+        username: user.username
+        // ... other user fields
+      }))
+    });
   } catch (error) {
     res.status(500).json({ success: false, error: 'Failed to fetch following list' });
   }

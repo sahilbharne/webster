@@ -746,3 +746,187 @@
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+/* Add these CSS classes for the modal */
+.modal-stats {
+  margin-top: 1rem;
+}
+
+.modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.modal-like-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.modal-like-btn.liked {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #f87171;
+}
+
+.modal-like-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.like-spinner, .small-spinner {
+  border: 2px solid transparent;
+  border-top: 2px solid currentColor;
+  border-radius: 50%;
+  width: 1rem;
+  height: 1rem;
+  animation: spin 1s linear infinite;
+}
+
+.message-display {
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  text-align: center;
+}
+
+.message-display.success {
+  background: rgba(34, 197, 94, 0.2);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  color: #4ade80;
+}
+
+.message-display.error {
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #f87171;
+}
+
+.collection-dropdown-container {
+  position: relative;
+}
+
+.add-to-collection-btn {
+  padding: 0.5rem 1rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 0.5rem;
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.add-to-collection-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.collection-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: #1f2937;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 0.5rem;
+  margin-top: 0.5rem;
+  z-index: 10;
+}
+
+.dropdown-header {
+  display: flex;
+  justify-content: between;
+  align-items: center;
+  padding: 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.collections-list {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.collection-option {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  width: 100%;
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.collection-option:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.collection-option:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.collection-info {
+  flex: 1;
+  text-align: left;
+}
+
+.collection-name {
+  display: block;
+  font-weight: 500;
+}
+
+.artwork-count {
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+.already-added {
+  color: #10b981;
+}
+
+.no-collections-message {
+  padding: 1rem;
+  text-align: center;
+  color: #9ca3af;
+}
+
+.dropdown-actions {
+  padding: 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.create-collection-btn {
+  width: 100%;
+  padding: 0.5rem;
+  background: rgba(139, 92, 246, 0.2);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 0.5rem;
+  color: #a855f7;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.create-collection-btn:hover {
+  background: rgba(139, 92, 246, 0.3);
+}
+
+.modal-views {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #9ca3af;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
