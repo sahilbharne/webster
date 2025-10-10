@@ -26,6 +26,7 @@ const Collections = () => {
       let response;
       if (viewMode === 'my' && user) {
         response = await collectionService.getUserCollections(user.id);
+        console.log('This is my collection', response);
 
       } else {
         response = await collectionService.getAll();
@@ -68,6 +69,19 @@ const Collections = () => {
     }
     return '/default-collection-cover.jpg';
   };
+
+  useEffect(() => {
+  const handleFocus = () => {
+    console.log('🔄 Page focused, refetching collections...');
+    fetchCollections();
+  };
+
+  window.addEventListener('focus', handleFocus);
+
+  return () => {
+    window.removeEventListener('focus', handleFocus);
+  };
+}, []);
 
   const getGradientClass = (index) => {
     const gradients = [

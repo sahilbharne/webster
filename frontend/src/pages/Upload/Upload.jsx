@@ -321,16 +321,7 @@ const Upload = () => {
               </div>
             </div>
 
-            <div className="flex items-center space-x-3">
-              <input
-                type="checkbox"
-                name="isPublic"
-                checked={formData.isPublic}
-                onChange={(e) => setFormData({...formData, isPublic: e.target.checked})}
-                className="w-4 h-4 text-purple-500 bg-white/10 border-white/20 rounded focus:ring-purple-500 focus:ring-2"
-              />
-              <label className="text-white">Make this artwork public</label>
-            </div>
+            
           </div>
 
           {/* Submit Button */}

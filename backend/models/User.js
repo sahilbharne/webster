@@ -189,17 +189,17 @@ userSchema.methods.updateStats = async function() {
 
     // Get followers count
     const followersCount = await Follow.countDocuments({ 
-      followingId: this._id 
+      followingUser: this._id 
     });
 
     // Get following count  
     const followingCount = await Follow.countDocuments({ 
-      followerId: this._id 
+      followerUser: this._id 
     });
 
     // Get collections count
     const collectionsCount = await Collection.countDocuments({ 
-      userId: this._id,
+      owner: this._id,
       isDeleted: { $ne: true }
     });
 

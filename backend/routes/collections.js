@@ -53,37 +53,35 @@ router.get('/', async (req, res) => {
   }
 });
 
+
+
 // CREATE new collection
 router.post('/', async (req, res) => {
   try {
-    const { name, description, isPublic, tags, category, clerkUserId } = req.body;
+    const { name, description, isPublic, clerkUserId } = req.body;
 
     if (!clerkUserId) {
       return res.status(400).json({ error: 'clerkUserId is required' });
     }
 
-    // Find user by Clerk ID
     const user = await User.findOne({ clerkUserId });
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    const collectionData = {
+    const collection = new Collection({
       name,
       description: description || '',
       isPublic: isPublic !== false,
-      tags: tags || [],
-      category: category || 'personal',
       owner: user._id,
       clerkUserId,
-      artworks: []
-    };
-
-    const collection = new Collection(collectionData);
+    });
     await collection.save();
 
-    // Populate for response
-    await collection.populate('owner', 'username firstName lastName profileImage');
+    // ✅ FIX: Call the authoritative updateStats method on the user
+    await user.updateStats();
+
+    await collection.populate('owner', 'username profileImage');
 
     res.status(201).json({
       success: true,
@@ -92,12 +90,6 @@ router.post('/', async (req, res) => {
     });
   } catch (error) {
     console.error('Error creating collection:', error);
-    
-    if (error.name === 'ValidationError') {
-      const errors = Object.values(error.errors).map(err => err.message);
-      return res.status(400).json({ error: errors.join(', ') });
-    }
-    
     res.status(500).json({ error: 'Failed to create collection' });
   }
 });
@@ -266,26 +258,32 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+
 // DELETE collection
 router.delete('/:id', async (req, res) => {
   try {
     const { clerkUserId } = req.body;
+    const { id } = req.params;
 
-    if (!clerkUserId) {
-      return res.status(400).json({ error: 'clerkUserId is required' });
-    }
-
-    const collection = await Collection.findById(req.params.id);
+    const collection = await Collection.findById(id);
     if (!collection) {
       return res.status(404).json({ error: 'Collection not found' });
     }
 
-    // Check ownership
     if (collection.clerkUserId !== clerkUserId) {
       return res.status(403).json({ error: 'Not authorized to delete this collection' });
     }
+    
+    // Find the owner before deleting the collection
+    const owner = await User.findById(collection.owner);
 
-    await Collection.findByIdAndDelete(req.params.id);
+    // Now, delete the collection
+    await Collection.findByIdAndDelete(id);
+
+    // ✅ FIX: Call the authoritative updateStats method on the owner
+    if (owner) {
+      await owner.updateStats();
+    }
 
     res.json({
       success: true,
@@ -296,7 +294,6 @@ router.delete('/:id', async (req, res) => {
     res.status(500).json({ error: 'Failed to delete collection' });
   }
 });
-
 // ADD artwork to collection
 router.post('/:id/artworks', async (req, res) => {
   try {
