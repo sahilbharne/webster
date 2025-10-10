@@ -29,176 +29,183 @@ const Landing = () => {
     }
   ];
 
-  const trendingArtworks = [
-    {
-      id: 1,
-      title: "Digital Dreams",
-      artist: "Alex Chen",
-      likes: "1.2K",
-      image: "https://images.unsplash.com/photo-1541961017774-22349e4a1262?w=400&h=300&fit=crop"
-    },
-    {
-      id: 2,
-      title: "Urban Nights",
-      artist: "Maria Rodriguez",
-      likes: "892",
-      image: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop"
-    },
-    {
-      id: 3,
-      title: "Cosmic Harmony",
-      artist: "James Wilson",
-      likes: "2.1K",
-      image: "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=300&fit=crop"
-    }
-  ];
-
-  return (
-    <div className="landing">
-      {/* Hero Section */}
-      <section className="hero-section">
-        <div className="container mx-auto px-6 py-20 text-center">
-          <h1 className="text-6xl font-bold text-white mb-6">
-            Welcome to{' '}
-            <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-              Grand Gallery
-            </span>
-          </h1>
-          <p className="text-xl text-gray-300 mb-8 max-w-2xl mx-auto">
-            Discover, create, and share amazing artwork with a global community of artists and art lovers.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            {isSignedIn ? (
-              <>
-                <Link 
-                  to="/discover" 
-                  className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-8 py-4 rounded-full font-semibold text-lg hover:shadow-2xl hover:shadow-purple-500/30 transition-all duration-300"
-                >
-                  Explore Artworks
-                </Link>
-                <Link 
-                  to="/dashboard" 
-                  className="bg-white/10 text-white px-8 py-4 rounded-full font-semibold text-lg hover:bg-white/20 transition-all duration-300 border border-white/20"
-                >
-                  Your Dashboard
-                </Link>
-              </>
-            ) : (
-              <>
-                <Link 
-                  to="/signup" 
-                  className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-8 py-4 rounded-full font-semibold text-lg hover:shadow-2xl hover:shadow-purple-500/30 transition-all duration-300"
-                >
-                  Get Started Free
-                </Link>
-                <Link 
-                  to="/discover" 
-                  className="bg-white/10 text-white px-8 py-4 rounded-full font-semibold text-lg hover:bg-white/20 transition-all duration-300 border border-white/20"
-                >
-                  Browse Artworks
-                </Link>
-              </>
-            )}
-          </div>
-        </div>
-      </section>
-
-      {/* Features Section */}
-      <section className="features-section py-20">
-        <div className="container mx-auto px-6">
-          <h2 className="text-4xl font-bold text-white text-center mb-12">
-            Why Choose Grand Gallery?
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {features.map((feature, index) => (
-              <div 
-                key={index} 
-                className="bg-white/5 rounded-2xl p-6 border border-white/10 hover:border-white/20 transition-all duration-300 group"
+  // If user is signed in, show the regular landing page
+  if (isSignedIn) {
+    return (
+      <div className="landing">
+        {/* Hero Section */}
+        <section className="hero-section">
+          <div className="container mx-auto px-6 py-20 text-center">
+            <h1 className="text-6xl font-bold text-white mb-6">
+              Welcome to{' '}
+              <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                Grand Gallery
+              </span>
+            </h1>
+            <p className="text-xl text-gray-300 mb-8 max-w-2xl mx-auto">
+              Discover, create, and share amazing artwork with a global community of artists and art lovers.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Link 
+                to="/discover" 
+                className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-8 py-4 rounded-full font-semibold text-lg hover:shadow-2xl hover:shadow-purple-500/30 transition-all duration-300"
               >
-                <div className="text-4xl mb-4 group-hover:scale-110 transition-transform duration-300">
-                  {feature.icon}
-                </div>
-                <h3 className="text-xl font-bold text-white mb-2">
-                  {feature.title}
-                </h3>
-                <p className="text-gray-300">
-                  {feature.description}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Trending Artworks */}
-      <section className="trending-section py-20 bg-white/5">
-        <div className="container mx-auto px-6">
-          <h2 className="text-4xl font-bold text-white text-center mb-12">
-            Trending Artworks
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {trendingArtworks.map((artwork) => (
-              <div 
-                key={artwork.id} 
-                className="bg-black/20 rounded-2xl overflow-hidden border border-white/10 hover:border-white/20 transition-all duration-300 group"
+                Explore Artworks
+              </Link>
+              <Link 
+                to="/profile" 
+                className="bg-white/10 text-white px-8 py-4 rounded-full font-semibold text-lg hover:bg-white/20 transition-all duration-300 border border-white/20"
               >
-                <div className="aspect-video overflow-hidden">
-                  <img 
-                    src={artwork.image} 
-                    alt={artwork.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  />
-                </div>
-                <div className="p-6">
+                Your Profile
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        {/* Features Section */}
+        <section className="features-section py-20">
+          <div className="container mx-auto px-6">
+            <h2 className="text-4xl font-bold text-white text-center mb-12">
+              Why Choose Grand Gallery?
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+              {features.map((feature, index) => (
+                <div 
+                  key={index} 
+                  className="bg-white/5 rounded-2xl p-6 border border-white/10 hover:border-white/20 transition-all duration-300 group"
+                >
+                  <div className="text-4xl mb-4 group-hover:scale-110 transition-transform duration-300">
+                    {feature.icon}
+                  </div>
                   <h3 className="text-xl font-bold text-white mb-2">
-                    {artwork.title}
+                    {feature.title}
                   </h3>
-                  <p className="text-gray-400 mb-3">by {artwork.artist}</p>
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-300 flex items-center">
-                      ❤️ {artwork.likes}
-                    </span>
-                    <Link 
-                      to="/discover" 
-                      className="text-purple-400 hover:text-purple-300 font-medium text-sm"
-                    >
-                      View Details →
-                    </Link>
+                  <p className="text-gray-300">
+                    {feature.description}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  // If user is signed out, show the split layout
+  return (
+    <div className="min-h-screen bg-black">
+      <div className="flex flex-col lg:flex-row min-h-screen">
+        {/* Left Side - Website Info */}
+        <div className="lg:w-1/2 p-8 lg:p-12 flex items-center justify-center">
+          <div className="max-w-2xl">
+            <Link to="/" className="inline-block mb-8">
+              <div className="flex items-center space-x-3">
+                <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
+                  <span className="text-white font-bold text-lg">GG</span>
+                </div>
+                <span className="text-white text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                  Grand Gallery
+                </span>
+              </div>
+            </Link>
+
+            <h1 className="text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight">
+              Where Art Finds Its{' '}
+              <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                Digital Home
+              </span>
+            </h1>
+
+            <p className="text-xl text-gray-300 mb-8 leading-relaxed">
+              Join thousands of artists and art enthusiasts in our growing community. 
+              Discover amazing artwork, create collections, and share your creativity with the world.
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+              {features.map((feature, index) => (
+                <div key={index} className="flex items-start space-x-3">
+                  <div className="text-2xl mt-1">{feature.icon}</div>
+                  <div>
+                    <h3 className="text-white font-semibold">{feature.title}</h3>
+                    <p className="text-gray-400 text-sm">{feature.description}</p>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-          <div className="text-center mt-12">
-            <Link 
-              to="/discover" 
-              className="bg-white/10 text-white px-8 py-3 rounded-full font-semibold hover:bg-white/20 transition-all duration-300 border border-white/20"
-            >
-              View All Artworks
-            </Link>
-          </div>
-        </div>
-      </section>
+              ))}
+            </div>
 
-      {/* CTA Section */}
-      <section className="cta-section py-20">
-        <div className="container mx-auto px-6 text-center">
-          <h2 className="text-4xl font-bold text-white mb-6">
-            Ready to Start Your Artistic Journey?
-          </h2>
-          <p className="text-xl text-gray-300 mb-8 max-w-2xl mx-auto">
-            Join thousands of artists and art enthusiasts in our growing community.
-          </p>
-          {!isSignedIn && (
-            <Link 
-              to="/signup" 
-              className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-8 py-4 rounded-full font-semibold text-lg hover:shadow-2xl hover:shadow-purple-500/30 transition-all duration-300 inline-block"
-            >
-              Create Your Account
-            </Link>
-          )}
+            <div className="text-gray-400 text-sm">
+              <span className="text-white font-semibold">10K+</span> Artists •{' '}
+              <span className="text-white font-semibold">50K+</span> Artworks •{' '}
+              <span className="text-white font-semibold">100K+</span> Community
+            </div>
+          </div>
         </div>
-      </section>
+
+        {/* Right Side - Signup Form */}
+        <div className="lg:w-1/2 bg-gradient-to-br from-gray-900 to-black p-8 lg:p-12 flex items-center justify-center">
+          <div className="w-full max-w-md">
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-bold text-white mb-2">
+                Join Grand Gallery
+              </h2>
+              <p className="text-gray-400">
+                Create your account and start your artistic journey
+              </p>
+            </div>
+            
+            <div className="bg-white/5 rounded-2xl p-6 border border-white/10">
+              <SignupEmbedded />
+            </div>
+
+            <div className="text-center mt-6">
+              <p className="text-gray-400">
+                Already have an account?{' '}
+                <Link to="/login" className="text-purple-400 hover:text-purple-300 font-medium">
+                  Sign in
+                </Link>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Embedded Signup Component for the landing page
+const SignupEmbedded = () => {
+  return (
+    <div>
+      <div className="text-center mb-6">
+        <h3 className="text-xl font-bold text-white mb-2">Get Started</h3>
+        <p className="text-gray-400 text-sm">Choose your sign up method</p>
+      </div>
+      
+      <div className="space-y-4">
+        <Link 
+          to="/signup" 
+          className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 px-4 rounded-lg font-semibold hover:shadow-2xl hover:shadow-purple-500/30 transition-all duration-300 block text-center"
+        >
+          Create Account
+        </Link>
+        
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-gray-600"></div>
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="px-2 bg-gray-900 text-gray-400">Or continue with</span>
+          </div>
+        </div>
+        
+        <Link 
+          to="/login" 
+          className="w-full bg-white/10 text-white py-3 px-4 rounded-lg font-semibold hover:bg-white/20 transition-all duration-300 border border-white/20 block text-center"
+        >
+          Sign In
+        </Link>
+      </div>
     </div>
   );
 };

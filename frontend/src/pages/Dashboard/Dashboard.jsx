@@ -79,6 +79,7 @@ const fetchDashboardData = async () => {
         // Process User & Stats
         if (userResponse.ok) {
             const userData = await userResponse.json();
+            console.log("This is data : ",userData);
             statsUpdate = {
                 totalArtworks: userData.stats?.artworksCount || 0,
                 totalFollowers: userData.stats?.followersCount || 0,

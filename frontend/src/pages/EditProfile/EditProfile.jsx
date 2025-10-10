@@ -48,18 +48,18 @@ const EditProfile = () => {
   const validateForm = () => {
     const newErrors = {};
 
-    // Required fields
+    // Required fields (remove username)
     if (!formData.firstName.trim()) {
       newErrors.firstName = 'First name is required';
     }
     if (!formData.lastName.trim()) {
       newErrors.lastName = 'Last name is required';
     }
-    if (!formData.username.trim()) {
-      newErrors.username = 'Username is required';
-    } else if (formData.username.length < 3) {
+
+    // Optional username validation (if you want to keep it for display)
+    if (formData.username.trim() && formData.username.length < 3) {
       newErrors.username = 'Username must be at least 3 characters';
-    } else if (!/^[a-zA-Z0-9_]+$/.test(formData.username)) {
+    } else if (formData.username.trim() && !/^[a-zA-Z0-9_]+$/.test(formData.username)) {
       newErrors.username = 'Username can only contain letters, numbers, and underscores';
     }
 
@@ -91,7 +91,7 @@ const EditProfile = () => {
       ...prev,
       [name]: value
     }));
-    
+
     // Clear error when user starts typing
     if (errors[name]) {
       setErrors(prev => ({
@@ -117,36 +117,30 @@ const EditProfile = () => {
     setMessage('');
     setErrors({});
 
-    // Validate form before submission
     if (!validateForm()) {
       setSaving(false);
-      setMessage('❌ Please fix the errors below');
+      setMessage('❌ Please fix the errors below.');
       return;
     }
 
     try {
       console.log('🔄 Starting profile update...');
 
-      // Update basic user information first
-      if (formData.firstName !== user.firstName || formData.lastName !== user.lastName) {
-        console.log('📝 Updating name...');
-        await user.update({
-          firstName: formData.firstName.trim(),
-          lastName: formData.lastName.trim(),
-        });
+      const updates = {};
+
+      // 1. Only update firstName and lastName (remove username)
+      if (formData.firstName.trim() !== (user.firstName || '')) {
+        updates.firstName = formData.firstName.trim();
+      }
+      if (formData.lastName.trim() !== (user.lastName || '')) {
+        updates.lastName = formData.lastName.trim();
       }
 
-      // Update username separately if changed
-      if (formData.username !== user.username) {
-        console.log('👤 Updating username...');
-        await user.update({
-          username: formData.username.trim(),
-        });
-      }
+      // 2. Use unsafeMetadata for all custom fields
+      const currentUnsafeMetadata = user.unsafeMetadata || {};
 
-      // Prepare public metadata - ensure it's properly structured
-      const publicMetadata = {
-        ...user.publicMetadata, // Keep existing metadata
+      updates.unsafeMetadata = {
+        ...currentUnsafeMetadata,
         bio: formData.bio.trim() || null,
         website: formData.website.trim() || null,
         location: formData.location.trim() || null,
@@ -154,59 +148,49 @@ const EditProfile = () => {
           twitter: formData.socialLinks.twitter.trim() || null,
           instagram: formData.socialLinks.instagram.trim() || null,
           behance: formData.socialLinks.behance.trim() || null,
-          dribbble: formData.socialLinks.dribbble.trim() || null,
+          dribbble: formData.socialLinks.dribbble.trim() || null
         }
       };
 
-      // Clean up empty values
-      Object.keys(publicMetadata).forEach(key => {
-        if (publicMetadata[key] === null || publicMetadata[key] === '') {
-          delete publicMetadata[key];
+      // Clean up null values
+      Object.keys(updates.unsafeMetadata.socialLinks).forEach(key => {
+        if (updates.unsafeMetadata.socialLinks[key] === null) {
+          delete updates.unsafeMetadata.socialLinks[key];
         }
       });
 
-      // Clean up socialLinks if all are empty
-      if (publicMetadata.socialLinks) {
-        const hasSocialLinks = Object.values(publicMetadata.socialLinks).some(val => val !== null);
-        if (!hasSocialLinks) {
-          delete publicMetadata.socialLinks;
-        }
+      // Remove socialLinks if empty
+      if (Object.keys(updates.unsafeMetadata.socialLinks).length === 0) {
+        delete updates.unsafeMetadata.socialLinks;
       }
 
-      console.log('📊 Updating public metadata:', publicMetadata);
+      console.log('Final updates payload:', updates);
 
-      // Update public metadata
-      await user.update({
-        publicMetadata: publicMetadata
-      });
+      // Perform the update
+      await user.update(updates);
 
       console.log('✅ Profile update successful');
       setMessage('✅ Profile updated successfully!');
-      
-      // Redirect after a short delay
+
       setTimeout(() => {
         navigate('/profile');
       }, 2000);
 
     } catch (error) {
       console.error('❌ Error updating profile:', error);
-      
-      // Handle specific Clerk errors
+
+      if (error.errors) {
+        console.error('Full Clerk errors:', error.errors);
+      }
+
+      let errorMessage = 'Failed to update profile.';
+
       if (error.errors && error.errors.length > 0) {
         const clerkError = error.errors[0];
-        let errorMessage = 'Failed to update profile';
-        
-        if (clerkError.code === 'form_identifier_exists') {
-          errorMessage = '❌ This username is already taken. Please choose another one.';
-          setErrors({ username: 'Username already exists' });
-        } else if (clerkError.message) {
-          errorMessage = `❌ ${clerkError.message}`;
-        }
-        
-        setMessage(errorMessage);
-      } else {
-        setMessage(`❌ Failed to update profile: ${error.message || 'Unknown error'}`);
+        errorMessage = `❌ ${clerkError.message || clerkError.longMessage || 'Unknown error'}`;
       }
+
+      setMessage(errorMessage);
     } finally {
       setSaving(false);
     }
@@ -243,11 +227,10 @@ const EditProfile = () => {
 
         {/* Message Display */}
         {message && (
-          <div className={`mb-6 p-4 rounded-xl border ${
-            message.includes('✅') 
-              ? 'bg-green-500/20 border-green-500/30 text-green-200' 
-              : 'bg-red-500/20 border-red-500/30 text-red-200'
-          }`}>
+          <div className={`mb-6 p-4 rounded-xl border ${message.includes('✅')
+            ? 'bg-green-500/20 border-green-500/30 text-green-200'
+            : 'bg-red-500/20 border-red-500/30 text-red-200'
+            }`}>
             {message}
           </div>
         )}
@@ -262,7 +245,7 @@ const EditProfile = () => {
                   <span className="mr-3">👤</span>
                   Basic Information
                 </h2>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="text-white font-semibold block mb-2">
@@ -273,9 +256,8 @@ const EditProfile = () => {
                       name="firstName"
                       value={formData.firstName}
                       onChange={handleInputChange}
-                      className={`w-full bg-white/10 border rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-                        errors.firstName ? 'border-red-500' : 'border-white/20'
-                      }`}
+                      className={`w-full bg-white/10 border rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent ${errors.firstName ? 'border-red-500' : 'border-white/20'
+                        }`}
                       placeholder="Enter your first name"
                     />
                     {errors.firstName && (
@@ -292,9 +274,8 @@ const EditProfile = () => {
                       name="lastName"
                       value={formData.lastName}
                       onChange={handleInputChange}
-                      className={`w-full bg-white/10 border rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-                        errors.lastName ? 'border-red-500' : 'border-white/20'
-                      }`}
+                      className={`w-full bg-white/10 border rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent ${errors.lastName ? 'border-red-500' : 'border-white/20'
+                        }`}
                       placeholder="Enter your last name"
                     />
                     {errors.lastName && (
@@ -302,27 +283,23 @@ const EditProfile = () => {
                     )}
                   </div>
 
+                  {/* Username Field - Display Only */}
                   <div className="md:col-span-2">
                     <label className="text-white font-semibold block mb-2">
-                      Username *
+                      Username (Display)
                     </label>
                     <input
                       type="text"
                       name="username"
                       value={formData.username}
                       onChange={handleInputChange}
-                      className={`w-full bg-white/10 border rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-                        errors.username ? 'border-red-500' : 'border-white/20'
-                      }`}
-                      placeholder="Choose a username"
+                      className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      placeholder="Display username (cannot be changed)"
+                      disabled={true} // Make it disabled
                     />
-                    {errors.username ? (
-                      <p className="text-red-400 text-sm mt-1">{errors.username}</p>
-                    ) : (
-                      <p className="text-gray-400 text-sm mt-2">
-                        This will be your public display name (3-30 characters, letters, numbers, and underscores only)
-                      </p>
-                    )}
+                    <p className="text-gray-400 text-sm mt-2">
+                      Username cannot be changed for your account type. This is for display purposes only.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -344,17 +321,15 @@ const EditProfile = () => {
                       value={formData.bio}
                       onChange={handleInputChange}
                       rows="4"
-                      className={`w-full bg-white/10 border rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none ${
-                        errors.bio ? 'border-red-500' : 'border-white/20'
-                      }`}
+                      className={`w-full bg-white/10 border rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none ${errors.bio ? 'border-red-500' : 'border-white/20'
+                        }`}
                       placeholder="Tell us about yourself, your art style, inspirations..."
                     />
                     {errors.bio ? (
                       <p className="text-red-400 text-sm mt-1">{errors.bio}</p>
                     ) : (
-                      <p className={`text-sm mt-2 ${
-                        formData.bio.length > 450 ? 'text-yellow-400' : 'text-gray-400'
-                      }`}>
+                      <p className={`text-sm mt-2 ${formData.bio.length > 450 ? 'text-yellow-400' : 'text-gray-400'
+                        }`}>
                         {formData.bio.length}/500 characters
                       </p>
                     )}
@@ -370,9 +345,8 @@ const EditProfile = () => {
                         name="website"
                         value={formData.website}
                         onChange={handleInputChange}
-                        className={`w-full bg-white/10 border rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-                          errors.website ? 'border-red-500' : 'border-white/20'
-                        }`}
+                        className={`w-full bg-white/10 border rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent ${errors.website ? 'border-red-500' : 'border-white/20'
+                          }`}
                         placeholder="https://yourportfolio.com"
                       />
                       {errors.website && (
@@ -502,11 +476,11 @@ const EditProfile = () => {
                 <span className="mr-2">👁️</span>
                 Preview
               </h3>
-              
+
               <div className="text-center">
-                <img 
-                  src={user.imageUrl} 
-                  alt="Profile" 
+                <img
+                  src={user.imageUrl}
+                  alt="Profile"
                   className="w-20 h-20 rounded-full mx-auto mb-4 border-2 border-white/20"
                 />
                 <h4 className="text-white font-semibold text-lg">
@@ -527,7 +501,7 @@ const EditProfile = () => {
                 <span className="mr-2">⚙️</span>
                 Account Settings
               </h3>
-              
+
               <div className="space-y-3">
                 <button
                   onClick={openClerkProfile}
@@ -536,7 +510,7 @@ const EditProfile = () => {
                   <span>🔒</span>
                   <span>Security & Password</span>
                 </button>
-                
+
                 <button
                   onClick={openClerkProfile}
                   className="w-full text-left p-3 bg-white/10 hover:bg-white/20 rounded-xl transition-all duration-300 text-white flex items-center space-x-3"
@@ -544,7 +518,7 @@ const EditProfile = () => {
                   <span>📧</span>
                   <span>Email & Notifications</span>
                 </button>
-                
+
                 <button
                   onClick={openClerkProfile}
                   className="w-full text-left p-3 bg-white/10 hover:bg-white/20 rounded-xl transition-all duration-300 text-white flex items-center space-x-3"

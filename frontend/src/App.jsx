@@ -16,22 +16,22 @@ import CollectionDetail from './pages/CollectionDetail/CollectionDetail'
 import CreateCollection from './pages/CreateCollection/CreateCollection'
 import EditCollection from './pages/EditCollection/EditCollection'
 import EditProfile from './pages/EditProfile/EditProfile'
-
+import VerifyEmail from './pages/VerifyEmail/VerifyEmail'
 // Components
 import Header from './components/Header/Header'
+import Footer from './components/Footer/Footer'
 
 // Styles
 import './App.css'
 
 function App() {
   return (
-    // REMOVED ClerkProvider from here
     <Router>
-      <div className="App">
+      <div className="App flex flex-col min-h-screen">
         {/* Signed In Users */}
         <SignedIn>
           <Header />
-          <main className="min-h-screen bg-black pt-16">
+          <main className="flex-grow bg-black pt-16">
             <Routes>
               <Route path="/" element={<Landing />} />
               <Route path="/discover" element={<Discover />} />
@@ -44,13 +44,15 @@ function App() {
               <Route path="/collections/:id/edit" element={<EditCollection />} />
               <Route path="/edit-profile" element={<EditProfile />} />
               {/* Fallback route for signed-in users */}
-              <Route path="*" element={<Dashboard />} />
+              <Route path="*" element={<Profile />} />
             </Routes>
           </main>
+          <Footer />
         </SignedIn>
         
         {/* Signed Out Users */}
         <SignedOut>
+          <div className='flex flex-col min-h-screen'>
           <Routes>
             <Route path="/" element={<Landing />} />
             <Route path="/discover" element={<Discover />} />
@@ -63,6 +65,8 @@ function App() {
             {/* Redirect all other routes to login for signed-out users */}
             <Route path="*" element={<Login />} />
           </Routes>
+          <Footer />
+          </div>
         </SignedOut>
       </div>
     </Router>

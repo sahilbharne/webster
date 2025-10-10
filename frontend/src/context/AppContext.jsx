@@ -38,6 +38,7 @@ export const AppProvider = ({ children }) => {
 
           if (response.ok) {
             const userData = await response.json();
+            console.log('User data from backend:', userData);
             setCurrentUser(userData.user);
             console.log('✅ User synced with backend:', userData.user.username);
           } else {

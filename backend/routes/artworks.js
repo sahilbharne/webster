@@ -266,7 +266,7 @@ router.delete('/:id', async (req, res) => {
 });
 
 // LIKE/UNLIKE artwork
-// In backend/routes/artworks.js - Update the like route
+
 router.post('/:id/like', async (req, res) => {
   try {
     const { clerkUserId } = req.body;

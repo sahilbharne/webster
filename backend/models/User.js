@@ -161,19 +161,70 @@ userSchema.virtual('displayName').get(function() {
 
 // Method to update stats
 userSchema.methods.updateStats = async function() {
-  const Artwork = mongoose.model('Artwork');
+
   
-  const userArtworks = await Artwork.find({ clerkUserId: this.clerkUserId });
-  
-  const artworkCount = userArtworks.length;
-  const totalLikes = userArtworks.reduce((sum, artwork) => sum + artwork.likes.length, 0);
-  const totalViews = userArtworks.reduce((sum, artwork) => sum + (artwork.views || 0), 0);
-  
-  this.stats.artworksCount = artworkCount;
-  this.stats.totalLikes = totalLikes;
-  this.stats.totalViews = totalViews;
-  
-  await this.save();
+  try {
+    const Artwork = mongoose.model('Artwork');
+    const Follow = mongoose.model('Follow');
+    const Collection = mongoose.model('Collection');
+
+    // Use aggregation for better performance - processes in database
+    const artworkStats = await Artwork.aggregate([
+      { 
+        $match: { 
+          clerkUserId: this.clerkUserId,
+          isDeleted: { $ne: true }, // Exclude soft-deleted
+          status: 'published' // Only count published artworks
+        } 
+      },
+      {
+        $group: {
+          _id: null,
+          artworkCount: { $sum: 1 },
+          totalLikes: { $sum: { $size: "$likes" } },
+          totalViews: { $sum: "$views" }
+        }
+      }
+    ]);
+
+    // Get followers count
+    const followersCount = await Follow.countDocuments({ 
+      followingId: this._id 
+    });
+
+    // Get following count  
+    const followingCount = await Follow.countDocuments({ 
+      followerId: this._id 
+    });
+
+    // Get collections count
+    const collectionsCount = await Collection.countDocuments({ 
+      userId: this._id,
+      isDeleted: { $ne: true }
+    });
+
+    // Update stats
+    const stats = artworkStats[0] || { artworkCount: 0, totalLikes: 0, totalViews: 0 };
+    
+    this.stats = {
+      artworksCount: stats.artworkCount,
+      totalLikes: stats.totalLikes,
+      totalViews: stats.totalViews,
+      followersCount: followersCount,
+      followingCount: followingCount,
+      collectionsCount: collectionsCount,
+      updatedAt: new Date()
+    };
+
+    await this.save();
+    
+    console.log(`✅ Stats updated for user ${this.clerkUserId}:`, this.stats);
+    return this.stats;
+
+  } catch (error) {
+    console.error('❌ Error updating user stats:', error);
+    throw error;
+  }
 };
 
 // Method to update total likes across all artworks
@@ -208,28 +259,101 @@ userSchema.statics.findByClerkId = function(clerkUserId) {
   return this.findOne({ clerkUserId });
 };
 
-// Static method to find or create from Clerk data
 userSchema.statics.findOrCreateFromClerk = async function(clerkUser) {
-  let user = await this.findOne({ clerkUserId: clerkUser.id });
+  const { 
+    id: clerkUserId, 
+    primaryEmailAddress, 
+    username, 
+    firstName, 
+    lastName, 
+    profileImageUrl, // Clerk's field name
+    lastSignInAt,
+    externalAccounts,
+    publicMetadata // Clerk's publicMetadata
+  } = clerkUser;
+
+  const email = primaryEmailAddress?.emailAddress?.toLowerCase();
+
+  if (!clerkUserId || !email) {
+    throw new Error('Clerk User ID and Email are required to sync user.');
+  }
+
+  let user = await this.findOne({ clerkUserId: clerkUserId });
+
+  // Prepare fields for update or creation
+  // Ensure username generation is robust if Clerk's is null or empty
+  let newUsername = username || email.split('@')[0]; // Fallback to email prefix
   
-  if (!user) {
-    user = new this({
-      clerkUserId: clerkUser.id,
-      email: clerkUser.primaryEmailAddress?.emailAddress,
-      username: clerkUser.username || clerkUser.primaryEmailAddress?.emailAddress.split('@')[0],
-      firstName: clerkUser.firstName,
-      lastName: clerkUser.lastName,
-      profileImage: clerkUser.profileImageUrl,
-      clerkData: {
-        lastSignInAt: clerkUser.lastSignInAt,
-        externalAccounts: clerkUser.externalAccounts?.map(acc => ({
-          provider: acc.provider,
-          providerUserId: acc.providerUserId
-        }))
+  // IMPORTANT: If username is required and unique, you might need more advanced
+  // generation for new users to avoid duplicates if `email.split('@')[0]` also clashes.
+  // For existing users, if their username is being updated and it's taken, Mongoose unique validation will throw.
+
+  const updateFields = {
+    email: email, // Already lowercased above
+    firstName: firstName || '',
+    lastName: lastName || '',
+    profileImage: profileImageUrl || '', // Map Clerk's profileImageUrl to your schema's profileImage
+    clerkData: { // Always update clerkData block
+      lastSignInAt: lastSignInAt,
+      externalAccounts: externalAccounts?.map(acc => ({
+        provider: acc.provider,
+        providerUserId: acc.providerUserId
+      })) || []
+    },
+    // The `bio`, `website`, `socialLinks`, `preferences` etc. are usually managed
+    // by your app's frontend and stored as publicMetadata in Clerk, or directly
+    // on your backend user model, but not usually overwritten by a *sync* operation
+    // unless you intend Clerk's publicMetadata to fully control these.
+    // If Clerk's publicMetadata contains your `bio`, `website` etc., then:
+    bio: publicMetadata?.bio || '',
+    website: publicMetadata?.website || '',
+    socialLinks: publicMetadata?.socialLinks || {},
+    // ... any other fields you want to pull from publicMetadata
+  };
+  
+  // Handle username separately due to its required/unique constraint
+  if (newUsername) {
+    updateFields.username = newUsername;
+  }
+  
+  let isNewUser = false;
+
+  if (user) {
+    // User found by Clerk ID: Update existing record
+    // We only update if fields have actually changed to avoid unnecessary DB writes
+    Object.assign(user, updateFields);
+    // If the username from Clerk is different, attempt to update it
+    if (user.username !== newUsername && newUsername) {
+        user.username = newUsername;
+    }
+    await user.save(); // Save the updated user (this will run validators)
+    console.log('✅ User updated in backend by Clerk ID:', user.email);
+  } else {
+    // User NOT found by Clerk ID: Try to find by email
+    user = await this.findOne({ email: email });
+
+    if (user) {
+      // User found by email (e.g., existing user before Clerk integration)
+      // Link the Clerk ID and update other fields
+      user.clerkUserId = clerkUserId; // <--- CRITICAL: LINK CLERK ID HERE
+      Object.assign(user, updateFields);
+      if (user.username !== newUsername && newUsername) {
+          user.username = newUsername;
       }
-    });
-    
-    await user.save();
+      await user.save();
+      console.log('✅ User found by email and updated with Clerk ID:', user.email);
+    } else {
+      // User not found by either Clerk ID or email: Create a new user
+      isNewUser = true;
+      user = new this({
+        clerkUserId,
+        ...updateFields, // Spreads email, firstName, lastName, profileImage, clerkData, bio, website, socialLinks
+        username: newUsername, // Use the determined username for creation
+        createdAt: new Date(), // Set creation date
+      });
+      await user.save(); // This will also run validators for required fields
+      console.log('✨ New user created in backend:', user.email);
+    }
   }
   
   return user;

@@ -90,13 +90,7 @@ const Profile = () => {
                   </p>
                 </div>
                 <div className="mt-4 lg:mt-0 flex flex-col space-y-2">
-                  <Link 
-                    to="/user-profile"
-                    className="bg-white/20 hover:bg-white/30 text-white px-6 py-3 rounded-full font-semibold transition-all duration-300 border border-white/20 hover:border-white/40 flex items-center space-x-2 justify-center"
-                  >
-                    <span>👁️</span>
-                    <span>View Public Profile</span>
-                  </Link>
+                  
                   <Link 
                     to="/edit-profile"
                     className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-full font-semibold hover:shadow-lg hover:shadow-purple-500/30 transition-all duration-300 flex items-center space-x-2 justify-center"
@@ -149,45 +143,7 @@ const Profile = () => {
           </div>
         </div>
 
-        {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <Link 
-            to="/upload"
-            className="bg-white/5 rounded-xl p-6 border border-white/10 hover:border-purple-500/50 hover:bg-purple-500/10 transition-all duration-300 group text-center"
-          >
-            <div className="text-3xl mb-3 group-hover:scale-110 transition-transform">🎨</div>
-            <h3 className="text-white font-semibold mb-2">Upload Artwork</h3>
-            <p className="text-gray-400 text-sm">Share your latest creation</p>
-          </Link>
-
-          <Link 
-            to="/collections"
-            className="bg-white/5 rounded-xl p-6 border border-white/10 hover:border-blue-500/50 hover:bg-blue-500/10 transition-all duration-300 group text-center"
-          >
-            <div className="text-3xl mb-3 group-hover:scale-110 transition-transform">📚</div>
-            <h3 className="text-white font-semibold mb-2">Collections</h3>
-            <p className="text-gray-400 text-sm">Organize your artworks</p>
-          </Link>
-
-          <Link 
-            to="/settings"
-            className="bg-white/5 rounded-xl p-6 border border-white/10 hover:border-green-500/50 hover:bg-green-500/10 transition-all duration-300 group text-center"
-          >
-            <div className="text-3xl mb-3 group-hover:scale-110 transition-transform">⚙️</div>
-            <h3 className="text-white font-semibold mb-2">Settings</h3>
-            <p className="text-gray-400 text-sm">Manage account preferences</p>
-          </Link>
-
-          <Link 
-            to="/saved"
-            className="bg-white/5 rounded-xl p-6 border border-white/10 hover:border-yellow-500/50 hover:bg-yellow-500/10 transition-all duration-300 group text-center"
-          >
-            <div className="text-3xl mb-3 group-hover:scale-110 transition-transform">⭐</div>
-            <h3 className="text-white font-semibold mb-2">Saved Items</h3>
-            <p className="text-gray-400 text-sm">Your favorite artworks</p>
-          </Link>
-        </div>
-
+        
         {/* Profile Information Card */}
         <div className="bg-white/5 rounded-2xl p-6 border border-white/10">
           <h2 className="text-2xl font-bold text-white mb-6 flex items-center">
@@ -203,12 +159,7 @@ const Profile = () => {
                   {user.fullName || 'Not set'}
                 </p>
               </div>
-              <div>
-                <label className="text-gray-400 text-sm block mb-2">Username</label>
-                <p className="text-white font-semibold">
-                  @{user.username || 'Not set'}
-                </p>
-              </div>
+             
               <div>
                 <label className="text-gray-400 text-sm block mb-2">Email Address</label>
                 <p className="text-white">
@@ -224,27 +175,8 @@ const Profile = () => {
                   {user.publicMetadata?.bio || 'No bio added yet. Share something about yourself!'}
                 </p>
               </div>
-              <div>
-                <label className="text-gray-400 text-sm block mb-2">Website</label>
-                <p className="text-white">
-                  {user.publicMetadata?.website ? (
-                    <a 
-                      href={user.publicMetadata.website} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-purple-300 hover:text-purple-200 transition-colors"
-                    >
-                      {user.publicMetadata.website}
-                    </a>
-                  ) : 'Not set'}
-                </p>
-              </div>
-              <div>
-                <label className="text-gray-400 text-sm block mb-2">Location</label>
-                <p className="text-white">
-                  {user.publicMetadata?.location || 'Not set'}
-                </p>
-              </div>
+              
+              
             </div>
           </div>
 
@@ -257,13 +189,7 @@ const Profile = () => {
                 <span>✏️</span>
                 <span>Edit Profile Details</span>
               </Link>
-              <Link 
-                to="/user-profile"
-                className="bg-white/10 text-white px-8 py-3 rounded-full font-semibold hover:bg-white/20 transition-all duration-300 flex items-center space-x-2 justify-center border border-white/20"
-              >
-                <span>👁️</span>
-                <span>View Public Profile</span>
-              </Link>
+              
             </div>
           </div>
         </div>
