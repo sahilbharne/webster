@@ -14,15 +14,7 @@ const EditProfile = () => {
     firstName: '',
     lastName: '',
     username: '',
-    bio: '',
-    website: '',
-    location: '',
-    socialLinks: {
-      twitter: '',
-      instagram: '',
-      behance: '',
-      dribbble: ''
-    }
+    bio: ''
   });
 
   // Initialize form with user data
@@ -137,32 +129,15 @@ const EditProfile = () => {
       }
 
       // 2. Use unsafeMetadata for all custom fields
-      const currentUnsafeMetadata = user.unsafeMetadata || {};
+      const currentPublicMetadata = user.publicMetadata || {};
 
-      updates.unsafeMetadata = {
-        ...currentUnsafeMetadata,
+      updates.publicMetadata = {
+        ...currentPublicMetadata,
         bio: formData.bio.trim() || null,
-        website: formData.website.trim() || null,
-        location: formData.location.trim() || null,
-        socialLinks: {
-          twitter: formData.socialLinks.twitter.trim() || null,
-          instagram: formData.socialLinks.instagram.trim() || null,
-          behance: formData.socialLinks.behance.trim() || null,
-          dribbble: formData.socialLinks.dribbble.trim() || null
-        }
+        
       };
 
-      // Clean up null values
-      Object.keys(updates.unsafeMetadata.socialLinks).forEach(key => {
-        if (updates.unsafeMetadata.socialLinks[key] === null) {
-          delete updates.unsafeMetadata.socialLinks[key];
-        }
-      });
-
-      // Remove socialLinks if empty
-      if (Object.keys(updates.unsafeMetadata.socialLinks).length === 0) {
-        delete updates.unsafeMetadata.socialLinks;
-      }
+      
 
       console.log('Final updates payload:', updates);
 
@@ -286,7 +261,7 @@ const EditProfile = () => {
                   {/* Username Field - Display Only */}
                   <div className="md:col-span-2">
                     <label className="text-white font-semibold block mb-2">
-                      Username (Display)
+                      Username
                     </label>
                     <input
                       type="text"
@@ -294,17 +269,25 @@ const EditProfile = () => {
                       value={formData.username}
                       onChange={handleInputChange}
                       className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                      placeholder="Display username (cannot be changed)"
-                      disabled={true} // Make it disabled
+                      placeholder="Display username "
+                      disabled={true}
                     />
                     <p className="text-gray-400 text-sm mt-2">
-                      Username cannot be changed for your account type. This is for display purposes only.
+                      Your username is managed through your account settings.
+                      <button
+                        type="button"
+                        onClick={openClerkProfile}
+                        className="text-purple-400 hover:underline ml-1 font-semibold"
+                      >
+                        Manage Account
+                      </button>
                     </p>
+
                   </div>
                 </div>
               </div>
 
-              {/* Bio & Links Card */}
+              {/* Bio Card */}
               <div className="bg-white/5 rounded-2xl p-6 border border-white/10">
                 <h2 className="text-2xl font-bold text-white mb-6 flex items-center">
                   <span className="mr-3">📝</span>
@@ -335,107 +318,10 @@ const EditProfile = () => {
                     )}
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="text-white font-semibold block mb-2">
-                        Website
-                      </label>
-                      <input
-                        type="url"
-                        name="website"
-                        value={formData.website}
-                        onChange={handleInputChange}
-                        className={`w-full bg-white/10 border rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent ${errors.website ? 'border-red-500' : 'border-white/20'
-                          }`}
-                        placeholder="https://yourportfolio.com"
-                      />
-                      {errors.website && (
-                        <p className="text-red-400 text-sm mt-1">{errors.website}</p>
-                      )}
-                    </div>
 
-                    <div>
-                      <label className="text-white font-semibold block mb-2">
-                        Location
-                      </label>
-                      <input
-                        type="text"
-                        name="location"
-                        value={formData.location}
-                        onChange={handleInputChange}
-                        className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                        placeholder="City, Country"
-                      />
-                    </div>
-                  </div>
                 </div>
               </div>
 
-              {/* Social Links Card */}
-              <div className="bg-white/5 rounded-2xl p-6 border border-white/10">
-                <h2 className="text-2xl font-bold text-white mb-6 flex items-center">
-                  <span className="mr-3">🌐</span>
-                  Social Links
-                </h2>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="text-white font-semibold block mb-2 flex items-center">
-                      <span className="mr-2">🐦</span>
-                      Twitter
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.socialLinks.twitter}
-                      onChange={(e) => handleSocialLinkChange('twitter', e.target.value)}
-                      className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                      placeholder="@username"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-white font-semibold block mb-2 flex items-center">
-                      <span className="mr-2">📷</span>
-                      Instagram
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.socialLinks.instagram}
-                      onChange={(e) => handleSocialLinkChange('instagram', e.target.value)}
-                      className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                      placeholder="@username"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-white font-semibold block mb-2 flex items-center">
-                      <span className="mr-2">🎨</span>
-                      Behance
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.socialLinks.behance}
-                      onChange={(e) => handleSocialLinkChange('behance', e.target.value)}
-                      className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                      placeholder="username"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-white font-semibold block mb-2 flex items-center">
-                      <span className="mr-2">🏀</span>
-                      Dribbble
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.socialLinks.dribbble}
-                      onChange={(e) => handleSocialLinkChange('dribbble', e.target.value)}
-                      className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                      placeholder="username"
-                    />
-                  </div>
-                </div>
-              </div>
 
               {/* Action Buttons */}
               <div className="flex flex-col sm:flex-row gap-4 justify-end pt-6">

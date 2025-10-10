@@ -6,6 +6,9 @@ import multer from 'multer';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { ClerkExpressRequireAuth } from '@clerk/clerk-sdk-node';
+import { Webhook } from 'svix';
+import { clerkClient } from '@clerk/clerk-sdk-node';
+
 import fs from 'fs';
 
 // AI Services
@@ -93,7 +96,80 @@ const connectDB = async () => {
 
 
 // ==================== OTHER ROUTES (WEBHOOKS, HEALTH, ETC.) ====================
-app.post('/api/webhooks/clerk', async (req, res) => { /* ... your webhook logic ... */ });
+app.post('/api/clerk/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  
+  // 1. VERIFY THE WEBHOOK SIGNATURE
+  // Get the headers from the request
+  const svix_id = req.headers["svix-id"];
+  const svix_timestamp = req.headers["svix-timestamp"];
+  const svix_signature = req.headers["svix-signature"];
+  
+  // If there are no headers, error out
+  if (!svix_id || !svix_timestamp || !svix_signature) {
+    return res.status(400).json({
+      success: false,
+      message: 'Error occurred -- no svix headers',
+    });
+  }
+
+  // Get the secret from your environment variables
+  const WEBHOOK_SECRET = process.env.CLERK_WEBHOOK_SECRET;
+  if (!WEBHOOK_SECRET) {
+    throw new Error('You need a CLERK_WEBHOOK_SECRET in your .env');
+  }
+
+  const wh = new Webhook(WEBHOOK_SECRET);
+  const payload = req.body;
+  let evt;
+
+  try {
+    // Verify the payload with the headers
+    evt = wh.verify(JSON.stringify(payload), {
+      "svix-id": svix_id,
+      "svix-timestamp": svix_timestamp,
+      "svix-signature": svix_signature,
+    });
+  } catch (err) {
+    console.error('❌ Error verifying webhook:', err);
+    return res.status(400).json({ 'success': false, 'message': err.message });
+  }
+
+  // 2. HANDLE THE 'user.created' EVENT
+  const eventType = evt.type;
+  if (eventType === 'user.created') {
+    console.log('✅ User created event received:', evt.data.id);
+
+    try {
+      // Get the user ID from the webhook payload
+      const userId = evt.data.id;
+      
+      // Define the new metadata you want to add
+      const newPublicMetadata = {
+        
+        bio: ''
+      };
+
+      // Update the user's metadata in Clerk
+      await clerkClient.users.updateUser(userId, {
+        publicMetadata: newPublicMetadata
+      });
+      
+      console.log('✅ Successfully updated metadata for user:', userId);
+
+    } catch (err) {
+      console.error('❌ Error updating user metadata:', err);
+      // Even if updating fails, send a 200 to Clerk to acknowledge receipt
+      // You can add more robust error handling/retry logic here
+    }
+  }
+
+  // Acknowledge receipt of the webhook
+  res.status(200).json({
+    success: true,
+    message: 'Webhook processed'
+  });
+});
+
 app.post('/api/auto-tag', upload.single('image'), async (req, res) => { /* ... your auto-tag logic ... */ });
 app.post('/api/upload-with-tags', upload.single('image'), async (req, res) => { /* ... your upload logic ... */ });
 app.get('/api/health', (req, res) => { 

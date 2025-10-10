@@ -23,7 +23,7 @@ const Login = () => {
           <SignIn 
             routing="path"
             path="/login"
-            redirectUrl="/landing"
+            redirectUrl=""
             signUpUrl="/signup"
             appearance={{
               elements: {

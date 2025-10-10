@@ -52,22 +52,6 @@ router.post('/sync', async (req, res) => {
   }
 });
 
-// Get user by Clerk ID
-router.get('/clerk/:clerkUserId', async (req, res) => {
-  try {
-    const user = await User.findByClerkId(req.params.clerkUserId);
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    
-    res.status(200).json(user.toPublicJSON ? user.toPublicJSON() : user);
-  } catch (error) {
-    console.error('Get user error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-
 // Add this route to your users.js (after the GET /clerk/:clerkUserId route)
 router.get('/clerk/:clerkUserId', async (req, res) => {
   try {
