@@ -39,7 +39,7 @@ const Landing = () => {
             <h1 className="text-6xl font-bold text-white mb-6">
               Welcome to{' '}
               <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-                Grand Gallery
+                ArtHive
               </span>
             </h1>
             <p className="text-xl text-gray-300 mb-8 max-w-2xl mx-auto">
@@ -102,10 +102,10 @@ const Landing = () => {
             <Link to="/" className="inline-block mb-8">
               <div className="flex items-center space-x-3">
                 <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-lg">GG</span>
+                  <span className="text-white font-bold text-lg">AH</span>
                 </div>
                 <span className="text-white text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-                  Grand Gallery
+                  ArtHive
                 </span>
               </div>
             </Link>
@@ -134,11 +134,7 @@ const Landing = () => {
               ))}
             </div>
 
-            <div className="text-gray-400 text-sm">
-              <span className="text-white font-semibold">10K+</span> Artists •{' '}
-              <span className="text-white font-semibold">50K+</span> Artworks •{' '}
-              <span className="text-white font-semibold">100K+</span> Community
-            </div>
+            
           </div>
         </div>
 
@@ -147,7 +143,7 @@ const Landing = () => {
           <div className="w-full max-w-md">
             <div className="text-center mb-8">
               <h2 className="text-3xl font-bold text-white mb-2">
-                Join Grand Gallery
+                Join ArtHive
               </h2>
               <p className="text-gray-400">
                 Create your account and start your artistic journey

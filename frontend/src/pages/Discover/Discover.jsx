@@ -6,6 +6,7 @@ import { viewService } from "../../services/viewService";
 import { collectionService } from "../../services/collectionService";
 import { followService } from "../../services/followService";
 import { recommendationService } from "../../services/recommendationService";
+import { savedService } from "../../services/savedService";
 import { useNavigate } from "react-router-dom";
 import "./Discover.css";
 
@@ -20,6 +21,7 @@ const Discover = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [likingArtwork, setLikingArtwork] = useState(null);
   const [togglingFollow, setTogglingFollow] = useState(null);
+  const [savingArtwork, setSavingArtwork] = useState(null);
 
   const [activeTab, setActiveTab] = useState('all');
 
@@ -38,19 +40,46 @@ const Discover = () => {
   // Follow state - SINGLE SOURCE OF TRUTH
   const [followingArtists, setFollowingArtists] = useState(new Set());
 
+  const [savedArtworks, setSavedArtworks] = useState(new Set());
+
 
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
       let initialFollowingSet = new Set();
+      let initialSavedSet = new Set();
 
       // 1. First, wait to get the list of artists the user follows.
       if (user?.id) {
-        const followingResponse = await followService.getFollowing(user.id);
-        if (followingResponse.data.success) {
-          initialFollowingSet = new Set(followingResponse.data.following?.map(artist => artist.clerkUserId) || []);
-          setFollowingArtists(initialFollowingSet);
+        try {
+          // ✅ FIX: Use Promise.allSettled to handle errors gracefully
+          const [followingResponse, savedResponse] = await Promise.allSettled([
+            followService.getFollowing(user.id),
+            savedService.getSavedItems(user.id)
+          ]);
+
+          // Handle following response
+          if (followingResponse.status === 'fulfilled' && followingResponse.value.data.success) {
+            initialFollowingSet = new Set(followingResponse.value.data.following?.map(artist => artist.clerkUserId) || []);
+            setFollowingArtists(initialFollowingSet);
+          } else {
+            console.warn('⚠️ Could not fetch following data');
+          }
+
+          // Handle saved response
+          if (savedResponse.status === 'fulfilled' && savedResponse.value.data.success) {
+            // Extract artwork IDs from saved artworks
+            const savedArtworkIds = savedResponse.value.data.artworks?.map(art => art._id) || [];
+            initialSavedSet = new Set(savedArtworkIds);
+            setSavedArtworks(initialSavedSet);
+          } else {
+            console.warn('⚠️ Could not fetch saved items - route might not exist yet');
+            // Don't fail the entire fetch if saved route doesn't exist
+          }
+        } catch (error) {
+          console.warn('⚠️ Error in user data fetch:', error);
+          // Continue without user-specific data
         }
       }
 
@@ -62,12 +91,13 @@ const Discover = () => {
       const artworksWithStatus = await Promise.all(
         artworksData.map(async (artwork) => {
           const isFollowing = initialFollowingSet.has(artwork.clerkUserId);
+          const isSaved = initialSavedSet.has(artwork._id);
           let hasLiked = false;
           let likesCount = artwork.likes?.length || 0;
+          
           if (user?.id) {
             try {
               const likeStatusResponse = await likeService.getLikeStatus(artwork._id, user.id);
-              console.log(likeStatusResponse)
               hasLiked = likeStatusResponse.hasLiked;
               likesCount = likeStatusResponse.likesCount;
             } catch (e) {
@@ -75,8 +105,14 @@ const Discover = () => {
             }
           }
 
-
-          return { ...artwork, isFollowing, hasLiked, likesCount,  views: artwork.views ?? artwork.viewedBy?.length ?? 0 };
+          return { 
+            ...artwork, 
+            isFollowing, 
+            hasLiked, 
+            likesCount,  
+            views: artwork.views ?? artwork.viewedBy?.length ?? 0, 
+            isSaved 
+          };
         })
       );
 
@@ -84,7 +120,7 @@ const Discover = () => {
 
       // 4. Fetch recommendations if the user is logged in
       if (user?.id) {
-        await fetchRecommendations(initialFollowingSet, artworksWithStatus);
+        await fetchRecommendations(initialFollowingSet, initialSavedSet, artworksWithStatus);
       }
 
     } catch (err) {
@@ -96,7 +132,7 @@ const Discover = () => {
   }, [user]);
 
 
-  const fetchRecommendations = useCallback(async (followingSet, allArtworks) => {
+  const fetchRecommendations = useCallback(async (followingSet, savedSet, allArtworks) => {
     if (!user) return;
 
     try {
@@ -109,7 +145,7 @@ const Discover = () => {
         const processedRecs = recommendations.map(rec => {
           const existingArtwork = allArtworks.find(art => art._id === rec._id);
           if (existingArtwork) return existingArtwork;
-          return { ...rec, isFollowing: followingSet.has(rec.clerkUserId), hasLiked: false, likesCount: rec.likes?.length || 0 };
+          return { ...rec, isFollowing: followingSet.has(rec.clerkUserId), hasLiked: false, likesCount: rec.likes?.length || 0, isSaved: savedSet.has(rec._id) };
         });
 
         setRecommendedArtworks(processedRecs);
@@ -124,6 +160,61 @@ const Discover = () => {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  const toggleSave = async (artworkId, artworkTitle, e) => {
+    if (e) e.stopPropagation();
+    if (!user?.id) {
+      setMessage("Please sign in to save artworks");
+      return;
+    }
+
+    setSavingArtwork(artworkId);
+    
+    // ✅ FIX: Use Set's .has() method correctly
+    const isCurrentlySaved = savedArtworks.has(artworkId);
+
+    try {
+      const response = isCurrentlySaved
+        ? await savedService.unsaveArtwork(artworkId, user.id)
+        : await savedService.saveArtwork(artworkId, user.id);
+
+      if (response.data.success) {
+        // ✅ FIX: Update saved artworks set correctly
+        const newSavedSet = new Set(savedArtworks);
+        if (isCurrentlySaved) {
+          newSavedSet.delete(artworkId);
+        } else {
+          newSavedSet.add(artworkId);
+        }
+        setSavedArtworks(newSavedSet);
+
+        // Update artworks state
+        const updateSaveState = (items) => items.map(art =>
+          art._id === artworkId ? { ...art, isSaved: !isCurrentlySaved } : art
+        );
+
+        setArtworks(updateSaveState);
+        setRecommendedArtworks(updateSaveState);
+
+        // Update selected artwork if open
+        if (selectedArtwork?._id === artworkId) {
+          setSelectedArtwork(prev => ({ ...prev, isSaved: !isCurrentlySaved }));
+        }
+
+        // Show success message
+        setMessage(isCurrentlySaved ? "❌ Removed from saved" : "✅ Saved to your collection");
+        
+        // Clear message after 3 seconds
+        setTimeout(() => setMessage(""), 3000);
+      }
+    } catch (error) {
+      console.error("Error toggling save:", error);
+      setMessage("❌ Failed to save artwork");
+      setTimeout(() => setMessage(""), 3000);
+    } finally {
+      setSavingArtwork(null);
+    }
+  };
 
 
   const toggleFollow = async (artistId, artistName, e) => {
@@ -345,6 +436,7 @@ const Discover = () => {
 
   const artworksForDisplay = getArtworksForDisplay();
 
+  
 
 
   if (loading) {
@@ -462,6 +554,26 @@ const Discover = () => {
                   </div>
                 )}
 
+                {/* ✅ SAVE BUTTON - Top Right */}
+                <div className="absolute top-4 left-4 z-10">
+                  <button
+                    onClick={(e) => toggleSave(artwork._id, artwork.title, e)}
+                    disabled={savingArtwork === artwork._id || !user}
+                    className={`p-2 rounded-full transition-all duration-300 ${
+                      artwork.isSaved 
+                        ? 'bg-yellow-500/90 text-white hover:bg-yellow-600' 
+                        : 'bg-black/50 text-white hover:bg-black/70'
+                    } ${!user ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    title={artwork.isSaved ? "Remove from saved" : "Save artwork"}
+                  >
+                    {savingArtwork === artwork._id ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+                    ) : (
+                      <span>{artwork.isSaved ? '⭐' : '☆'}</span>
+                    )}
+                  </button>
+                </div>
+
                 <img
                   src={artwork.imageUrl}
                   alt={artwork.title}
@@ -567,6 +679,28 @@ const Discover = () => {
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
+                </button>
+
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleSave(selectedArtwork._id, selectedArtwork.title, e);
+                  }}
+                  disabled={savingArtwork === selectedArtwork._id || !user}
+                  className={`absolute top-4 left-4 z-10 px-4 py-2 rounded-full transition-all duration-300 ${
+                    selectedArtwork.isSaved 
+                      ? 'bg-yellow-500 text-white hover:bg-yellow-600' 
+                      : 'bg-white/10 text-white hover:bg-white/20'
+                  } ${!user ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  {savingArtwork === selectedArtwork._id ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+                  ) : (
+                    <span className="flex items-center space-x-2">
+                      <span>{selectedArtwork.isSaved ? '⭐' : '☆'}</span>
+                      <span>{selectedArtwork.isSaved ? 'Saved' : 'Save'}</span>
+                    </span>
+                  )}
                 </button>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2">

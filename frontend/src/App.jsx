@@ -17,6 +17,7 @@ import CreateCollection from './pages/CreateCollection/CreateCollection'
 import EditCollection from './pages/EditCollection/EditCollection'
 import EditProfile from './pages/EditProfile/EditProfile'
 import VerifyEmail from './pages/VerifyEmail/VerifyEmail'
+import Saved from './pages/Saved/Saved'
 // Components
 import Header from './components/Header/Header'
 import Footer from './components/Footer/Footer'
@@ -43,6 +44,7 @@ function App() {
               <Route path="/collections/:id" element={<CollectionDetail />} />
               <Route path="/collections/:id/edit" element={<EditCollection />} />
               <Route path="/edit-profile" element={<EditProfile />} />
+              <Route path="/saved" element={<Saved />} />
               {/* Fallback route for signed-in users */}
               <Route path="*" element={<Profile />} />
             </Routes>

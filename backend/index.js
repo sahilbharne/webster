@@ -22,6 +22,9 @@ import collectionRoutes from './routes/collections.js';
 import userRoutes from './routes/users.js';
 import artworkRoutes from './routes/artworks.js';
 import followRoutes from './routes/follow.js';
+import savedRoutes from './routes/saved.js';
+
+console.log('🔧 Loading saved routes...', typeof savedRoutes);
 
 // --- 2. INITIAL SETUP ---
 dotenv.config();
@@ -40,6 +43,8 @@ app.use(express.json());
 app.use(express.static('public'));
 app.use('/api/webhooks/clerk', express.raw({ type: 'application/json' }));
 
+console.log('🔧 Mounting API routes...');
+
 
 // --- 4. API ROUTES ---
 app.use('/api/upload', uploadRoutes);
@@ -48,6 +53,16 @@ app.use('/api/users', userRoutes);
 app.use('/api/artworks', artworkRoutes);
 app.use('/api/collections', collectionRoutes);
 app.use('/api/recommendations', recommendationRoutes);
+app.use('/api/saved', savedRoutes);
+
+app.get('/api/test-saved', (req, res) => {
+  console.log('✅ Test route hit!');
+  res.json({ 
+    success: true, 
+    message: 'Saved routes test - working!',
+    timestamp: new Date().toISOString()
+  });
+});
 
 
 
@@ -81,7 +96,13 @@ const connectDB = async () => {
 app.post('/api/webhooks/clerk', async (req, res) => { /* ... your webhook logic ... */ });
 app.post('/api/auto-tag', upload.single('image'), async (req, res) => { /* ... your auto-tag logic ... */ });
 app.post('/api/upload-with-tags', upload.single('image'), async (req, res) => { /* ... your upload logic ... */ });
-app.get('/api/health', (req, res) => { /* ... your health check logic ... */ });
+app.get('/api/health', (req, res) => { 
+  res.json({ 
+    status: 'OK', 
+    server: 'ArtHive Backend',
+    timestamp: new Date().toISOString()
+  });
+ });
 app.get('/api/protected', ClerkExpressRequireAuth(), (req, res) => { /* ... your protected route logic ... */ });
 app.get('/api/me', ClerkExpressRequireAuth(), async (req, res) => { /* ... your /api/me logic ... */ });
 

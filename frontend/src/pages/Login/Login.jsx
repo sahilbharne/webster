@@ -10,9 +10,9 @@ const Login = () => {
         <div className="text-center mb-6">
           <div className="flex items-center justify-center space-x-2 mb-4">
             <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">GG</span>
+              <span className="text-white font-bold text-sm">AH</span>
             </div>
-            <span className="text-white text-xl font-bold">Grand Gallery</span>
+            <span className="text-white text-xl font-bold">ArtHive</span>
           </div>
           <h1 className="text-2xl font-bold text-white mb-1">Welcome Back</h1>
           <p className="text-gray-400 text-sm">Sign in to continue</p>
@@ -23,7 +23,7 @@ const Login = () => {
           <SignIn 
             routing="path"
             path="/login"
-            redirectUrl="/profile"
+            redirectUrl="/landing"
             signUpUrl="/signup"
             appearance={{
               elements: {
@@ -70,7 +70,7 @@ const Login = () => {
         {/* Compact Footer */}
         <div className="text-center mt-4">
           <p className="text-gray-400 text-xs">
-            New to Grand Gallery?{' '}
+            New to ArtHive?{' '}
             <Link 
               to="/signup" 
               className="text-purple-400 hover:text-purple-300 font-medium"
