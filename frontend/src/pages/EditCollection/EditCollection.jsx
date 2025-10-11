@@ -1,4 +1,4 @@
-// pages/EditCollection/EditCollection.jsx
+
 import React, { useState, useEffect } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { useParams, useNavigate } from 'react-router-dom';

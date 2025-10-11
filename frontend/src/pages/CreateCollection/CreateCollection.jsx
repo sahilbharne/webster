@@ -1,4 +1,4 @@
-// pages/CreateCollection/CreateCollection.jsx
+
 import React, { useState } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { useNavigate } from 'react-router-dom';

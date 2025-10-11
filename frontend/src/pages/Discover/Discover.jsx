@@ -50,10 +50,12 @@ const Discover = () => {
       let initialFollowingSet = new Set();
       let initialSavedSet = new Set();
 
-      // 1. First, wait to get the list of artists the user follows.
+      // list of artists the user follows
+
       if (user?.id) {
         try {
-          // ✅ FIX: Use Promise.allSettled to handle errors gracefully
+          // Fetch following artists and saved items in parallel
+
           const [followingResponse, savedResponse] = await Promise.allSettled([
             followService.getFollowing(user.id),
             savedService.getSavedItems(user.id)
@@ -68,26 +70,24 @@ const Discover = () => {
           }
 
           // Handle saved response
-          if (savedResponse.status === 'fulfilled' && savedResponse.value.data.success) {
-            // Extract artwork IDs from saved artworks
+          if (savedResponse.status === 'fulfilled' && savedResponse.value.data.success) {  
             const savedArtworkIds = savedResponse.value.data.artworks?.map(art => art._id) || [];
             initialSavedSet = new Set(savedArtworkIds);
             setSavedArtworks(initialSavedSet);
           } else {
             console.warn('⚠️ Could not fetch saved items - route might not exist yet');
-            // Don't fail the entire fetch if saved route doesn't exist
           }
         } catch (error) {
           console.warn('⚠️ Error in user data fetch:', error);
-          // Continue without user-specific data
+          
         }
       }
 
-      // 2. Fetch all artworks
+      //  Fetch all artworks
       const artworkResponse = await artworkAPI.getAll();
       const artworksData = artworkResponse.data?.artworks || artworkResponse.data?.data || artworkResponse.data || [];
 
-      // 3. Process artworks with the now-correct follow status
+      // Process artworks with the follow status
       const artworksWithStatus = await Promise.all(
         artworksData.map(async (artwork) => {
           const isFollowing = initialFollowingSet.has(artwork.clerkUserId);
@@ -118,7 +118,7 @@ const Discover = () => {
 
       setArtworks(artworksWithStatus);
 
-      // 4. Fetch recommendations if the user is logged in
+      // Fetch recommendations if the user is logged in
       if (user?.id) {
         await fetchRecommendations(initialFollowingSet, initialSavedSet, artworksWithStatus);
       }
@@ -131,7 +131,7 @@ const Discover = () => {
     }
   }, [user]);
 
-
+  // Fetch recommendations
   const fetchRecommendations = useCallback(async (followingSet, savedSet, allArtworks) => {
     if (!user) return;
 
@@ -161,7 +161,7 @@ const Discover = () => {
     fetchData();
   }, [fetchData]);
 
-  const toggleSave = async (artworkId, artworkTitle, e) => {
+  const toggleSave = async (artworkId, e) => {
     if (e) e.stopPropagation();
     if (!user?.id) {
       setMessage("Please sign in to save artworks");
@@ -170,7 +170,6 @@ const Discover = () => {
 
     setSavingArtwork(artworkId);
     
-    // ✅ FIX: Use Set's .has() method correctly
     const isCurrentlySaved = savedArtworks.has(artworkId);
 
     try {
@@ -179,7 +178,7 @@ const Discover = () => {
         : await savedService.saveArtwork(artworkId, user.id);
 
       if (response.data.success) {
-        // ✅ FIX: Update saved artworks set correctly
+        
         const newSavedSet = new Set(savedArtworks);
         if (isCurrentlySaved) {
           newSavedSet.delete(artworkId);
@@ -201,10 +200,8 @@ const Discover = () => {
           setSelectedArtwork(prev => ({ ...prev, isSaved: !isCurrentlySaved }));
         }
 
-        // Show success message
         setMessage(isCurrentlySaved ? "❌ Removed from saved" : "✅ Saved to your collection");
         
-        // Clear message after 3 seconds
         setTimeout(() => setMessage(""), 3000);
       }
     } catch (error) {
@@ -282,7 +279,6 @@ const Discover = () => {
     navigate('/collections/create');
   };
 
-  // Rest of your functions remain the same...
   const fetchUserCollections = async () => {
     try {
       const response = await collectionService.getUserCollections(user.id);
@@ -303,11 +299,9 @@ const Discover = () => {
     setIsModalOpen(true);
 
     try {
-      // We only try to record a view if a user is logged in
       if (user?.id) {
         const response = await viewService.recordView(artwork._id, user.id);
         
-        // The backend now tells us the new, correct view count
         if (response.success) {
           updateLocalViews(artwork._id, response.views);
         }
@@ -382,7 +376,7 @@ const Discover = () => {
 
 
   const updateLocalViews = (artworkId, newViewCount) => {
-    // Only update if the new view count is provided
+    
     if (newViewCount === undefined) return;
 
     const updateState = (items) => items.map(artwork =>
@@ -390,7 +384,7 @@ const Discover = () => {
     );
 
     setArtworks(updateState);
-    setRecommendedArtworks(updateState); // Also update recommendations
+    setRecommendedArtworks(updateState); 
 
     if (selectedArtwork?._id === artworkId) {
       setSelectedArtwork(prev => ({ ...prev, views: newViewCount }));

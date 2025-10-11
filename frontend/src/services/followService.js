@@ -1,4 +1,4 @@
-// services/followService.js
+
 import API from "../utils/api";
 
 export const followService = {

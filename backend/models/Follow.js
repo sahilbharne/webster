@@ -1,4 +1,4 @@
-// models/Follow.js
+
 import mongoose from 'mongoose';
 
 const followSchema = new mongoose.Schema({
@@ -10,7 +10,7 @@ const followSchema = new mongoose.Schema({
     type: String, // Clerk user ID of the person being followed
     required: true
   },
-  // Add references to User model for population
+  
   followerUser: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'

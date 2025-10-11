@@ -32,11 +32,11 @@ const upload = multer({
     }
   },
   limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB limit
+    fileSize: 10 * 1024 * 1024 
   }
 });
 
-// POST /api/auto-tag - STANDALONE AUTO-TAG ENDPOINT
+// POST 
 router.post('/auto-tag', upload.single('image'), async (req, res) => {
   console.log('🎯 ========== AUTO-TAG ROUTE START ==========');
   
@@ -124,7 +124,6 @@ router.post('/auto-tag', upload.single('image'), async (req, res) => {
     console.error('❌ ========== AUTO-TAG ROUTE ERROR ==========');
     console.error('Error details:', error.message);
     
-    // Provide fallback tags if analysis fails
     const fallbackTags = ['art', 'creative', 'digital', 'design', 'visual', 'modern'];
     
     // Clean up file if exists and not already deleted

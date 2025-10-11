@@ -1,4 +1,4 @@
-// routes/saved.js
+
 import express from 'express';
 import SavedArtwork from '../models/SavedArtwork.js';
 import SavedCollection from '../models/SavedCollection.js';
@@ -10,10 +10,9 @@ const router = express.Router();
 router.use((req, res, next) => {
   console.log('✅ Request has successfully reached the saved.js router!');
   console.log('   - Path requested:', req.path);
-  next(); // Pass the request to the next routes (like get('/:userId'))
+  next(); 
 });
 
-// ✅ GET /api/saved/:userId - Get all saved items for a user
 router.get('/:userId', async (req, res) => {
   try {
     const { userId } = req.params; // This is clerkUserId
@@ -35,7 +34,7 @@ router.get('/:userId', async (req, res) => {
     const savedCollections = await SavedCollection.find({ userId })
       .populate({
         path: 'collectionId',
-        match: { isDeleted: { $ne: true } }, // Only include non-deleted collections
+        match: { isDeleted: { $ne: true } }, 
         populate: {
           path: 'artworks',
           select: 'imageUrl title'
@@ -43,7 +42,6 @@ router.get('/:userId', async (req, res) => {
       })
       .sort({ savedAt: -1 });
 
-    // Filter out any null references (in case artworks/collections were deleted)
     const artworks = savedArtworks
       .map(sa => sa.artworkId)
       .filter(artwork => artwork !== null);
@@ -69,7 +67,7 @@ router.get('/:userId', async (req, res) => {
   }
 });
 
-// ✅ POST /api/saved/artworks/:artworkId - Save an artwork
+// Save an artwork
 router.post('/artworks/:artworkId', async (req, res) => {
   try {
     const { artworkId } = req.params;
@@ -143,7 +141,7 @@ router.post('/artworks/:artworkId', async (req, res) => {
   }
 });
 
-// ✅ DELETE /api/saved/artworks/:artworkId - Unsave an artwork
+// Unsave an artwork
 router.delete('/artworks/:artworkId', async (req, res) => {
   try {
     const { artworkId } = req.params;
@@ -185,7 +183,7 @@ router.delete('/artworks/:artworkId', async (req, res) => {
   }
 });
 
-// ✅ GET /api/saved/artworks/:artworkId/status - Check if artwork is saved
+//Check if artwork is saved
 router.get('/artworks/:artworkId/status', async (req, res) => {
   try {
     const { artworkId } = req.params;
@@ -219,7 +217,6 @@ router.get('/artworks/:artworkId/status', async (req, res) => {
   }
 });
 
-// ✅ Similar routes for collections (if needed)
 router.post('/collections/:collectionId', async (req, res) => {
   try {
     const { collectionId } = req.params;
@@ -227,7 +224,6 @@ router.post('/collections/:collectionId', async (req, res) => {
 
     console.log('🔄 Saving collection:', { collectionId, userId });
 
-    // Similar logic as artwork save...
     res.json({
       success: true,
       message: 'Collection saved successfully'

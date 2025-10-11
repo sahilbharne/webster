@@ -59,7 +59,7 @@ router.post('/', upload.single('image'), async (req, res) => {
       description,
       imageUrl: result.secure_url,
       cloudinaryId: result.public_id,
-      artist: user.id, // MongoDB user ID
+      artist: user.id, 
       artistName: `${user.firstName} ${user.lastName}`,
       artistClerkId: user.userId,
       tags: tags ? tags.split(',').map(tag => tag.trim()) : [],

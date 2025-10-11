@@ -1,4 +1,4 @@
-// services/collectionService.js
+
 import API from '../utils/api.js';
 
 export const collectionService = {

@@ -2,12 +2,12 @@ import User from '../models/User.js';
 
 export const protect = async (req, res, next) => {
   try {
-    // Look for clerkUserId in several common places.
+    // Look for clerkUserId 
     let clerkUserId = null;
 
     const authHeader = req.headers.authorization || req.headers.Authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
-      // For local/dev convenience some clients may send "Bearer <clerkUserId>"
+      
       clerkUserId = authHeader.split(' ')[1];
     }
 
@@ -26,7 +26,7 @@ export const protect = async (req, res, next) => {
       return res.status(401).json({ message: 'Not authorized: user not found' });
     }
 
-    // Attach full user document (or minimal info) to request for downstream use
+    // Attach full user document to request for downstream use
     req.user = user;
     return next();
   } catch (error) {

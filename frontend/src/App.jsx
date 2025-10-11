@@ -1,4 +1,4 @@
-// App.jsx - REMOVE ClerkProvider from here
+
 import React from 'react'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { SignedIn, SignedOut } from '@clerk/clerk-react'

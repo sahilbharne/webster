@@ -27,7 +27,6 @@ import artworkRoutes from './routes/artworks.js';
 import followRoutes from './routes/follow.js';
 import savedRoutes from './routes/saved.js';
 
-console.log('🔧 Loading saved routes...', typeof savedRoutes);
 
 // --- 2. INITIAL SETUP ---
 dotenv.config();
@@ -37,7 +36,7 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // --- 3. MIDDLEWARE ---
-// This section must come BEFORE the routes section.
+
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:5173',
   credentials: true
@@ -74,7 +73,7 @@ const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, 'uploads/'),
   filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`)
 });
-const upload = multer({ storage, /* ... limits and fileFilter ... */ });
+const upload = multer({ storage });
 if (!fs.existsSync('uploads')) {
   fs.mkdirSync('uploads');
 }
@@ -98,8 +97,6 @@ const connectDB = async () => {
 // ==================== OTHER ROUTES (WEBHOOKS, HEALTH, ETC.) ====================
 app.post('/api/clerk/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
   
-  // 1. VERIFY THE WEBHOOK SIGNATURE
-  // Get the headers from the request
   const svix_id = req.headers["svix-id"];
   const svix_timestamp = req.headers["svix-timestamp"];
   const svix_signature = req.headers["svix-signature"];
@@ -140,10 +137,9 @@ app.post('/api/clerk/webhook', express.raw({ type: 'application/json' }), async 
     console.log('✅ User created event received:', evt.data.id);
 
     try {
-      // Get the user ID from the webhook payload
+      
       const userId = evt.data.id;
       
-      // Define the new metadata you want to add
       const newPublicMetadata = {
         
         bio: ''
@@ -158,20 +154,17 @@ app.post('/api/clerk/webhook', express.raw({ type: 'application/json' }), async 
 
     } catch (err) {
       console.error('❌ Error updating user metadata:', err);
-      // Even if updating fails, send a 200 to Clerk to acknowledge receipt
-      // You can add more robust error handling/retry logic here
     }
   }
 
-  // Acknowledge receipt of the webhook
   res.status(200).json({
     success: true,
     message: 'Webhook processed'
   });
 });
 
-app.post('/api/auto-tag', upload.single('image'), async (req, res) => { /* ... your auto-tag logic ... */ });
-app.post('/api/upload-with-tags', upload.single('image'), async (req, res) => { /* ... your upload logic ... */ });
+app.post('/api/auto-tag', upload.single('image'), async (req, res) => { });
+app.post('/api/upload-with-tags', upload.single('image'), async (req, res) => {});
 app.get('/api/health', (req, res) => { 
   res.json({ 
     status: 'OK', 
@@ -179,18 +172,18 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString()
   });
  });
-app.get('/api/protected', ClerkExpressRequireAuth(), (req, res) => { /* ... your protected route logic ... */ });
-app.get('/api/me', ClerkExpressRequireAuth(), async (req, res) => { /* ... your /api/me logic ... */ });
+app.get('/api/protected', ClerkExpressRequireAuth(), (req, res) => { });
+app.get('/api/me', ClerkExpressRequireAuth(), async (req, res) => {});
 
 
 // ==================== ERROR HANDLING ====================
 // Global error handler
 app.use((err, req, res, next) => {
   console.error('🚨 Global Error Handler:', err);
-  // ... your error handling logic
+  
   res.status(500).json({ success: false, error: 'Internal server error' });
 });
-// 404 handler for any routes not found
+
 app.use('*', (req, res) => {
   res.status(404).json({ success: false, error: `Route ${req.originalUrl} not found` });
 });

@@ -4,7 +4,6 @@ import User from '../models/User.js';
 import mongoose from 'mongoose';
 import { getRecommendations } from '../ai_services/recommendation_service.js';
 import { protect } from '../middleware/auth.js';
-//import { protect } from '../middleware/authMiddleware.js'; // Assuming you have auth middleware
 
 const router = express.Router();
 
@@ -108,7 +107,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// CREATE new artwork (requires authentication)
+// CREATE new artwork 
 router.post('/', async (req, res) => {
   try {
     const { 
@@ -374,10 +373,6 @@ router.get('/:id/like-status/:clerkUserId', async (req, res) => {
     });
   }
 });
-
-
-
-
 
 // COUNT view for an artwork
 

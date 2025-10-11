@@ -19,7 +19,6 @@ API.interceptors.request.use(
   }
 );
 
-// Response interceptor for error handling
 API.interceptors.response.use(
   (response) => response,
   (error) => {

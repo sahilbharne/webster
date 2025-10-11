@@ -1,10 +1,9 @@
-// routes/recommendations.js
+
 import express from 'express';
 import { getRecommendations } from '../ai_services/recommendation_service.js';
 
 const router = express.Router();
 
-// GET /api/recommendations/:userId
 router.get('/:userId', async (req, res) => {
   try {
     const { userId } = req.params;

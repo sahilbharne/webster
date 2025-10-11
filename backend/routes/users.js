@@ -21,7 +21,7 @@ router.post('/sync', async (req, res) => {
       return res.status(400).json({ error: 'clerkUserId and email are required' });
     }
 
-    // Use the static method from User model
+    // static method from User model
     const user = await User.findOrCreateFromClerk({
       id: clerkUserId,
       primaryEmailAddress: { emailAddress: email },
@@ -52,7 +52,6 @@ router.post('/sync', async (req, res) => {
   }
 });
 
-// Add this route to your users.js (after the GET /clerk/:clerkUserId route)
 router.get('/clerk/:clerkUserId', async (req, res) => {
   try {
     const user = await User.findOne({ clerkUserId: req.params.clerkUserId });

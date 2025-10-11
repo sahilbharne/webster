@@ -1,4 +1,4 @@
-// components/AddArtworksModal/AddArtworksModal.jsx
+
 import React, { useState, useEffect } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { collectionService } from '../../services/collectionService';
@@ -41,7 +41,6 @@ const AddArtworksModal = ({ collectionId, onClose, onArtworksAdded }) => {
     console.error('❌ Fetch error:', error);
     console.error('❌ Error details:', error.response?.data || error.message);
     
-    // Enhanced fallback
     await fetchUserArtworksFallback();
   } finally {
     setLoading(false);

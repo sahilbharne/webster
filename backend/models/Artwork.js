@@ -21,7 +21,7 @@ const artworkSchema = new mongoose.Schema({
     required: [true, 'Cloudinary ID is required']
   },
   
-  // Updated user reference fields
+  
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -52,11 +52,11 @@ const artworkSchema = new mongoose.Schema({
   
   // Engagement metrics
   likes: [{
-  type: String, // storing clerkUserId
+  type: String, //storing clerk user id for one like per user
   required: true
   }],
   viewedBy: [{
-    type: String // storing clerkUserId
+    type: String 
     
   }],
   downloads: {
@@ -64,7 +64,7 @@ const artworkSchema = new mongoose.Schema({
     default: 0
   },
   
-  // Visibility and licensing
+  
   isPublic: {
     type: Boolean,
     default: true
@@ -207,15 +207,14 @@ artworkSchema.virtual('resolutionString').get(function() {
 });
 
 // Method to increment views
-// New version
+
 artworkSchema.methods.recordView = async function(clerkUserId) {
   // If a user ID is provided and they haven't viewed it before
   if (clerkUserId && !this.viewedBy.includes(clerkUserId)) {
     this.viewedBy.push(clerkUserId);
     await this.save();
   }
-  // For anonymous users, we'll just increment a legacy view count or rely on array length
-  // For simplicity, we return the total number of unique viewers
+  
   return this.viewedBy.length;
 };
 
@@ -230,15 +229,14 @@ artworkSchema.virtual('formattedViews').get(function() {
   return this.views.toString();
 });
 
-// Method to toggle like (returns new like count)
 artworkSchema.methods.toggleLike = async function(clerkUserId) {
   const likeIndex = this.likes.indexOf(clerkUserId);
   
   if (likeIndex > -1) {
-    // Unlike - remove user from likes array
+    
     this.likes.splice(likeIndex, 1);
   } else {
-    // Like - add user to likes array
+    
     this.likes.push(clerkUserId);
   }
   

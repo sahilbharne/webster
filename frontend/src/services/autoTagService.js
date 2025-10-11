@@ -1,6 +1,6 @@
 const API_BASE_URL = 'http://localhost:3001/api';
 
-// Generate tags for an image (STANDALONE auto-tagging)
+// Generate tags for an image 
 export const autoTagImage = async (file, clerkUserId) => {
   const formData = new FormData();
   formData.append('image', file);
@@ -14,7 +14,7 @@ export const autoTagImage = async (file, clerkUserId) => {
     
     // Add timeout to prevent hanging
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000); // 45 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 5000); 
 
     const response = await fetch(`${API_BASE_URL}/auto-tag`, {
       method: 'POST',
@@ -63,7 +63,7 @@ export const autoTagImage = async (file, clerkUserId) => {
   }
 };
 
-// Upload artwork with auto tag generation (COMBINED upload + auto-tag)
+
 export const uploadArtworkWithTags = async (artworkData, clerkUserId) => {
   const formData = new FormData();
   

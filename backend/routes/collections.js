@@ -14,7 +14,6 @@ router.get('/', async (req, res) => {
 
     const query = { isPublic: true };
 
-    // Search in name and description
     if (search) {
       query.$or = [
         { name: { $regex: search, $options: 'i' } },
@@ -78,7 +77,6 @@ router.post('/', async (req, res) => {
     });
     await collection.save();
 
-    // ✅ FIX: Call the authoritative updateStats method on the user
     await user.updateStats();
 
     await collection.populate('owner', 'username profileImage');
@@ -114,7 +112,7 @@ router.get('/user/:clerkUserId', async (req, res) => {
   }
 });
 
-// GET single collection by ID - FIXED VERSION
+// GET single collection by ID 
 router.get('/:id', async (req, res) => {
   try {
     const collection = await Collection.findById(req.params.id)
@@ -125,8 +123,7 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Collection not found' });
     }
 
-    // Allow access if collection is public OR if user provides valid clerkUserId via query param
-    const { clerkUserId } = req.query; // Get from query params instead of body
+    const { clerkUserId } = req.query; 
     
     if (!collection.isPublic) {
       if (!clerkUserId || collection.clerkUserId !== clerkUserId) {
@@ -280,7 +277,6 @@ router.delete('/:id', async (req, res) => {
     // Now, delete the collection
     await Collection.findByIdAndDelete(id);
 
-    // ✅ FIX: Call the authoritative updateStats method on the owner
     if (owner) {
       await owner.updateStats();
     }

@@ -55,7 +55,6 @@ const EditProfile = () => {
       newErrors.username = 'Username can only contain letters, numbers, and underscores';
     }
 
-    // Optional field validations
     if (formData.bio.length > 500) {
       newErrors.bio = 'Bio must be less than 500 characters';
     }

@@ -1,15 +1,15 @@
-// routes/follow.js
+
 import express from 'express';
 import Follow from '../models/Follow.js';
 import User from '../models/User.js';
 
 const router = express.Router();
 
-// ✅ FIXED ROUTE: POST /api/follow/:artistId
+
 router.post('/:artistId', async (req, res) => {
   try {
-    const { artistId } = req.params; // Get artist from URL parameter
-    const { followerId } = req.body;   // Get follower from request body
+    const { artistId } = req.params; 
+    const { followerId } = req.body;   
 
     console.log('🔄 Follow request:', { artistId, followerId });
 
@@ -50,11 +50,10 @@ router.post('/:artistId', async (req, res) => {
   }
 });
 
-// ✅ FIXED ROUTE: DELETE /api/follow/:artistId
 router.delete('/:artistId', async (req, res) => {
   try {
-    const { artistId } = req.params; // Get artist from URL parameter
-    const { followerId } = req.body;   // Get follower from request body
+    const { artistId } = req.params; 
+    const { followerId } = req.body;   
 
     console.log('🔄 Unfollow request:', { artistId, followerId });
 
@@ -68,7 +67,7 @@ router.delete('/:artistId', async (req, res) => {
       return res.status(404).json({ success: false, error: 'Follow relationship not found' });
     }
 
-    // Update stats safely
+    
     await User.updateOne({ clerkUserId: artistId }, { $inc: { 'stats.followersCount': -1 } });
     await User.updateOne({ clerkUserId: followerId }, { $inc: { 'stats.followingCount': -1 } });
 
@@ -81,10 +80,6 @@ router.delete('/:artistId', async (req, res) => {
   }
 });
 
-
-// --- The rest of your routes for status, following, and followers are mostly okay, but let's clean them up ---
-
-// GET /api/follow/status/:artistId/:followerId
 router.get('/status/:artistId/:followerId', async (req, res) => {
   try {
     const { artistId, followerId } = req.params;
@@ -102,7 +97,6 @@ router.get('/status/:artistId/:followerId', async (req, res) => {
   }
 });
 
-// In your follow.js backend route - make sure it returns this structure
 router.get('/following/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
@@ -110,14 +104,13 @@ router.get('/following/:userId', async (req, res) => {
     
     const following = follows.map(f => f.followingUser).filter(Boolean);
     
-    // ✅ RETURN THIS STRUCTURE:
     res.json({
       success: true,
       following: following.map(user => ({
-        clerkUserId: user.clerkUserId, // Make sure this field exists
+        clerkUserId: user.clerkUserId, 
         name: user.name,
         username: user.username
-        // ... other user fields
+        
       }))
     });
   } catch (error) {
@@ -125,7 +118,6 @@ router.get('/following/:userId', async (req, res) => {
   }
 });
 
-// GET /api/follow/followers/:userId
 router.get('/followers/:userId', async (req, res) => {
   try {
     const { userId } = req.params;

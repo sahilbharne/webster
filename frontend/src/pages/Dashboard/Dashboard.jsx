@@ -51,94 +51,94 @@ const Dashboard = () => {
 
   // In Dashboard.jsx
 
-const fetchDashboardData = async () => {
+  const fetchDashboardData = async () => {
     try {
-        setLoading(true);
-        setError("");
-        console.log('🔄 Fetching dashboard data for user:', user.id);
+      setLoading(true);
+      setError("");
+      console.log('🔄 Fetching dashboard data for user:', user.id);
 
-        // Use Promise.all to run all fetch requests in parallel for speed
-        const [
-            userResponse,
-            artworksResponse,
-            collectionsResponse,
-            followersResponse,
-            followingResponse
-        ] = await Promise.all([
-            fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/users/clerk/${user.id}`),
-            fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/artworks/user/${user.id}`),
-            collectionService.getUserCollections(user.id),
-            fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/follow/followers/${user.id}`),
-            fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/follow/following/${user.id}`),
-        ]);
+      // Use Promise.all to run all fetch requests in parallel for speed
+      const [
+        userResponse,
+        artworksResponse,
+        collectionsResponse,
+        followersResponse,
+        followingResponse
+      ] = await Promise.all([
+        fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/users/clerk/${user.id}`),
+        fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/artworks/user/${user.id}`),
+        collectionService.getUserCollections(user.id),
+        fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/follow/followers/${user.id}`),
+        fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/follow/following/${user.id}`),
+      ]);
 
-        // Now that all data is fetched, process it
-        let artworksData = [], collectionsData = [], followersData = [], followingData = [];
-        let statsUpdate = {};
+      // Now that all data is fetched, process it
 
-        // Process User & Stats
-        if (userResponse.ok) {
-            const userData = await userResponse.json();
-            console.log("This is data : ",userData);
-            statsUpdate = {
-                totalArtworks: userData.stats?.artworksCount || 0,
-                totalFollowers: userData.stats?.followersCount || 0,
-                totalFollowing: userData.stats?.followingCount || 0,
-                totalCollections: userData.stats?.collectionsCount || 0,
-                totalLikes: userData.stats?.totalLikes || 0,
-            };
-        }
+      let artworksData = [], collectionsData = [], followersData = [], followingData = [];
+      let statsUpdate = {};
 
-        // Process Artworks
-        if (artworksResponse.ok) {
-            const artData = await artworksResponse.json();
-            artworksData = artData.artworks || [];
-            const totalViews = artworksData.reduce((sum, art) => sum + (art.views || 0), 0);
-            statsUpdate.totalViews = totalViews;
-            setUserArtworks(artworksData);
-        }
+      // Process User & Stats
+      if (userResponse.ok) {
+        const userData = await userResponse.json();
+        console.log("This is data : ", userData);
+        statsUpdate = {
+          totalArtworks: userData.stats?.artworksCount || 0,
+          totalFollowers: userData.stats?.followersCount || 0,
+          totalFollowing: userData.stats?.followingCount || 0,
+          totalCollections: userData.stats?.collectionsCount || 0,
+          totalLikes: userData.stats?.totalLikes || 0,
+        };
+      }
 
-        // Process Collections
-        if (collectionsResponse.collections) {
-            collectionsData = collectionsResponse.collections || [];
-            setUserCollections(collectionsData);
-        }
+      // Process Artworks
+      if (artworksResponse.ok) {
+        const artData = await artworksResponse.json();
+        artworksData = artData.artworks || [];
+        const totalViews = artworksData.reduce((sum, art) => sum + (art.views || 0), 0);
+        statsUpdate.totalViews = totalViews;
+        setUserArtworks(artworksData);
+      }
 
-        // Process Followers
-        if (followersResponse.ok) {
-            const followersJson = await followersResponse.json();
-            followersData = followersJson.followers || [];
-            setFollowers(followersData);
-        }
+      // Process Collections
+      if (collectionsResponse.collections) {
+        collectionsData = collectionsResponse.collections || [];
+        setUserCollections(collectionsData);
+      }
 
-        // Process Following
-        if (followingResponse.ok) {
-            const followingJson = await followingResponse.json();
-            followingData = followingJson.following || [];
-            setFollowing(followingData);
-        }
+      // Process Followers
+      if (followersResponse.ok) {
+        const followersJson = await followersResponse.json();
+        followersData = followersJson.followers || [];
+        setFollowers(followersData);
+      }
 
-        // Set all stats at once
-        setStats(prev => ({ ...prev, ...statsUpdate }));
+      // Process Following
+      if (followingResponse.ok) {
+        const followingJson = await followingResponse.json();
+        followingData = followingJson.following || [];
+        setFollowing(followingData);
+      }
 
-        // ✅ FIX: Call this function ONLY after all data has been fetched and set
-        generateRealTimeActivities(artworksData, collectionsData, followersData);
+      // Set all stats at once
+      setStats(prev => ({ ...prev, ...statsUpdate }));
+
+      generateRealTimeActivities(artworksData, collectionsData, followersData);
 
     } catch (err) {
-        console.error("❌ Error fetching dashboard data:", err);
-        setError("Failed to load dashboard data");
-        // Reset state on error
+      console.error("❌ Error fetching dashboard data:", err);
+      setError("Failed to load dashboard data");
+      // Reset state on error
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
-};
+  };
 
   // Generate real-time activities with proper timestamp handling
   const generateRealTimeActivities = (artworks, collections, followers) => {
     const newActivities = [];
     const now = Date.now();
 
-    console.log('🔄 Generating real-time activities...');
+    console.log('Generating real-time activities...');
 
     // Add recent artwork uploads
     const recentArtworks = artworks.slice(0, 2);
@@ -226,18 +226,18 @@ const fetchDashboardData = async () => {
   const formatRealTime = (timestamp) => {
     try {
       const timestampNum = typeof timestamp === 'string' ? new Date(timestamp).getTime() : timestamp;
-      
+
       if (isNaN(timestampNum)) {
         return 'Recently';
       }
 
       const now = Date.now();
       const diff = now - timestampNum;
-      
+
       if (diff < 0) {
         return 'Just now';
       }
-      
+
       const seconds = Math.floor(diff / 1000);
       const minutes = Math.floor(seconds / 60);
       const hours = Math.floor(minutes / 60);
@@ -310,123 +310,6 @@ const fetchDashboardData = async () => {
     });
   };
 
-  // Like functionality
-  const handleLike = async (artworkId, e) => {
-    if (e) e.stopPropagation();
-
-    if (!user) {
-      alert("Please sign in to like artworks");
-      return;
-    }
-
-    setLikingArtwork(artworkId);
-
-    try {
-      const result = await likeService.toggleLike(artworkId, user.id);
-      
-      let success, liked, likesCount;
-
-      if (result && result.success) {
-        success = result.success;
-        liked = result.liked;
-        likesCount = result.likes;
-      } else if (result && result.data && result.data.success) {
-        success = result.data.success;
-        liked = result.data.liked;
-        likesCount = result.data.likes;
-      } else if (result && result.data) {
-        success = true;
-        liked = result.data.liked;
-        likesCount = result.data.likes;
-      }
-
-      if (success) {
-        setUserArtworks(prevArtworks =>
-          prevArtworks.map(artwork =>
-            artwork._id === artworkId
-              ? {
-                ...artwork,
-                hasLiked: liked,
-                likesCount: likesCount
-              }
-              : artwork
-          )
-        );
-
-        setStats(prev => ({
-          ...prev,
-          totalLikes: liked ? prev.totalLikes + 1 : prev.totalLikes - 1
-        }));
-
-        if (selectedArtwork && selectedArtwork._id === artworkId) {
-          setSelectedArtwork(prev => ({
-            ...prev,
-            hasLiked: liked,
-            likesCount: likesCount
-          }));
-        }
-
-        const artwork = userArtworks.find(a => a._id === artworkId);
-        if (artwork && liked) {
-          addNewActivity(`You liked '${artwork.title}'`, '❤️', 'artwork_like');
-        }
-      }
-    } catch (error) {
-      console.error("Error liking artwork:", error);
-      alert("Failed to like artwork: " + error.message);
-    } finally {
-      setLikingArtwork(null);
-    }
-  };
-
-  // Modal functionality
-  const handleArtworkClick = async (artwork) => {
-    setSelectedArtwork(artwork);
-    setIsModalOpen(true);
-
-    try {
-      let viewResult;
-      if (user) {
-        viewResult = await viewService.recordView(artwork._id, user.id);
-      } else {
-        viewResult = await viewService.recordView(artwork._id);
-      }
-      
-      updateLocalViews(artwork._id);
-
-      if (artwork.clerkUserId !== user.id) {
-        addNewActivity(`You viewed '${artwork.title}'`, '👁️', 'artwork_view');
-      }
-
-    } catch (error) {
-      console.error('❌ Error recording view:', error);
-    }
-  };
-
-  const updateLocalViews = (artworkId) => {
-    setUserArtworks(prevArtworks =>
-      prevArtworks.map(artwork =>
-        artwork._id === artworkId
-          ? {
-            ...artwork,
-            views: (artwork.views || 0) + 1
-          }
-          : artwork
-      )
-    );
-
-    setStats(prev => ({
-      ...prev,
-      totalViews: prev.totalViews + 1
-    }));
-
-    if (selectedArtwork && selectedArtwork._id === artworkId) {
-      setSelectedArtwork(prev => ({
-        ...prev,
-        views: (prev.views || 0) + 1
-      }));
-    }
-  };
 
   const closeModal = () => {
     setIsModalOpen(false);
@@ -462,7 +345,7 @@ const fetchDashboardData = async () => {
     }
   };
 
-  // Format follower name (same as Profile.jsx)
+  // Format follower name 
   const formatFollowerName = (follower) => {
     if (follower.username) return follower.username;
     if (follower.firstName && follower.lastName) return `${follower.firstName} ${follower.lastName}`;
@@ -517,26 +400,26 @@ const fetchDashboardData = async () => {
           </div>
         )}
 
-        {/* Stats Grid - Updated with consistent data */}
+        {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-12">
           <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10 hover:border-white/20 transition-all duration-300 hover:transform hover:scale-105 group">
             <div className="text-2xl group-hover:scale-110 transition-transform duration-300 mb-4">🎨</div>
             <h3 className="text-3xl font-bold text-white mb-2">{stats.totalArtworks}</h3>
             <p className="text-gray-400 text-sm">Total Artworks</p>
           </div>
-          
+
           <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10 hover:border-white/20 transition-all duration-300 hover:transform hover:scale-105 group">
             <div className="text-2xl group-hover:scale-110 transition-transform duration-300 mb-4">🖼️</div>
             <h3 className="text-3xl font-bold text-white mb-2">{stats.totalCollections}</h3>
             <p className="text-gray-400 text-sm">Collections</p>
           </div>
-          
+
           <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10 hover:border-white/20 transition-all duration-300 hover:transform hover:scale-105 group">
             <div className="text-2xl group-hover:scale-110 transition-transform duration-300 mb-4">❤️</div>
             <h3 className="text-3xl font-bold text-white mb-2">{stats.totalLikes}</h3>
             <p className="text-gray-400 text-sm">Total Likes</p>
           </div>
-          
+
           <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10 hover:border-white/20 transition-all duration-300 hover:transform hover:scale-105 group">
             <div className="text-2xl group-hover:scale-110 transition-transform duration-300 mb-4">👁️</div>
             <h3 className="text-3xl font-bold text-white mb-2">{stats.totalViews}</h3>
@@ -557,7 +440,7 @@ const fetchDashboardData = async () => {
             <div className="flex items-center space-x-3">
               <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
               <span className="text-green-400 text-sm font-medium">Live</span>
-              <button 
+              <button
                 onClick={fetchDashboardData}
                 className="text-purple-400 hover:text-purple-300 text-sm font-medium transition-colors flex items-center"
               >
@@ -568,19 +451,18 @@ const fetchDashboardData = async () => {
 
           <div className="space-y-4">
             {activities.map((activity) => (
-              <div 
+              <div
                 key={activity.id}
                 className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5 hover:border-white/10 transition-all duration-300 group"
               >
                 <div className="flex items-center space-x-4">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center group-hover:scale-110 transition-all duration-300 ${
-                    activity.type === 'artwork_upload' ? 'bg-green-500/20 group-hover:bg-green-500/30' :
-                    activity.type === 'artwork_like' ? 'bg-red-500/20 group-hover:bg-red-500/30' :
-                    activity.type === 'artwork_view' ? 'bg-blue-500/20 group-hover:bg-blue-500/30' :
-                    activity.type === 'collection_create' ? 'bg-purple-500/20 group-hover:bg-purple-500/30' :
-                    activity.type === 'new_follower' ? 'bg-yellow-500/20 group-hover:bg-yellow-500/30' :
-                    'bg-gradient-to-r from-purple-500/20 to-pink-500/20 group-hover:from-purple-500/30 group-hover:to-pink-500/30'
-                  }`}>
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center group-hover:scale-110 transition-all duration-300 ${activity.type === 'artwork_upload' ? 'bg-green-500/20 group-hover:bg-green-500/30' :
+                      activity.type === 'artwork_like' ? 'bg-red-500/20 group-hover:bg-red-500/30' :
+                        activity.type === 'artwork_view' ? 'bg-blue-500/20 group-hover:bg-blue-500/30' :
+                          activity.type === 'collection_create' ? 'bg-purple-500/20 group-hover:bg-purple-500/30' :
+                            activity.type === 'new_follower' ? 'bg-yellow-500/20 group-hover:bg-yellow-500/30' :
+                              'bg-gradient-to-r from-purple-500/20 to-pink-500/20 group-hover:from-purple-500/30 group-hover:to-pink-500/30'
+                    }`}>
                     <span className="text-lg">{activity.icon}</span>
                   </div>
                   <div>
@@ -590,11 +472,10 @@ const fetchDashboardData = async () => {
                     </p>
                   </div>
                 </div>
-                <div className={`w-2 h-2 rounded-full animate-pulse ${
-                  Date.now() - activity.timestamp < 300000 ? 'bg-green-500' :
-                  Date.now() - activity.timestamp < 3600000 ? 'bg-yellow-500' :
-                  'bg-gray-500'
-                }`}></div>
+                <div className={`w-2 h-2 rounded-full animate-pulse ${Date.now() - activity.timestamp < 300000 ? 'bg-green-500' :
+                    Date.now() - activity.timestamp < 3600000 ? 'bg-yellow-500' :
+                      'bg-gray-500'
+                  }`}></div>
               </div>
             ))}
           </div>
@@ -606,28 +487,28 @@ const fetchDashboardData = async () => {
           <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
             <h3 className="text-xl font-bold text-white mb-4">Quick Actions</h3>
             <div className="grid grid-cols-2 gap-4">
-              <button 
+              <button
                 onClick={() => handleQuickAction('upload')}
                 className="p-4 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 rounded-xl text-white transition-all duration-300 hover:transform hover:scale-105 group"
               >
                 <span className="text-lg block mb-2 group-hover:scale-110 transition-transform">🎨</span>
                 Upload Art
               </button>
-              <button 
+              <button
                 onClick={() => handleQuickAction('collection')}
                 className="p-4 bg-pink-600/20 hover:bg-pink-600/30 border border-pink-500/30 rounded-xl text-white transition-all duration-300 hover:transform hover:scale-105 group"
               >
                 <span className="text-lg block mb-2 group-hover:scale-110 transition-transform">🖼️</span>
                 New Collection
               </button>
-              <button 
+              <button
                 onClick={() => handleQuickAction('discover')}
                 className="p-4 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 rounded-xl text-white transition-all duration-300 hover:transform hover:scale-105 group"
               >
                 <span className="text-lg block mb-2 group-hover:scale-110 transition-transform">🔍</span>
                 Discover Art
               </button>
-              <button 
+              <button
                 onClick={() => handleQuickAction('artists')}
                 className="p-4 bg-green-600/20 hover:bg-green-600/30 border border-green-500/30 rounded-xl text-white transition-all duration-300 hover:transform hover:scale-105 group"
               >
@@ -643,14 +524,14 @@ const fetchDashboardData = async () => {
             <div className="space-y-3">
               {recentArtworks.length > 0 ? (
                 recentArtworks.map((artwork) => (
-                  <div 
-                    key={artwork._id} 
+                  <div
+                    key={artwork._id}
                     className="flex items-center justify-between p-3 hover:bg-white/5 rounded-lg transition-colors cursor-pointer group"
-                    
+
                   >
                     <div className="flex items-center space-x-3">
-                      <img 
-                        src={artwork.imageUrl} 
+                      <img
+                        src={artwork.imageUrl}
                         alt={artwork.title}
                         className="w-10 h-10 object-cover rounded-lg opacity-80 group-hover:opacity-100 transition-opacity"
                       />
@@ -658,7 +539,7 @@ const fetchDashboardData = async () => {
                         {artwork.title}
                       </span>
                     </div>
-                    
+
                   </div>
                 ))
               ) : (
@@ -666,7 +547,7 @@ const fetchDashboardData = async () => {
                   <div className="text-4xl mb-2 opacity-50">🎨</div>
                   <p className="text-gray-400">No artworks yet</p>
                   <p className="text-gray-500 text-sm mt-1">Start by uploading your first artwork</p>
-                  <button 
+                  <button
                     onClick={() => navigate('/upload')}
                     className="text-purple-400 hover:text-purple-300 text-sm mt-3 transition-colors"
                   >
@@ -683,8 +564,8 @@ const fetchDashboardData = async () => {
             <div className="space-y-3">
               {recentFollowers.length > 0 ? (
                 recentFollowers.map((follower) => (
-                  <div 
-                    key={follower._id} 
+                  <div
+                    key={follower._id}
                     className="flex items-center justify-between p-3 hover:bg-white/5 rounded-lg transition-colors group"
                   >
                     <div className="flex items-center space-x-3">
@@ -710,7 +591,7 @@ const fetchDashboardData = async () => {
                   <div className="text-4xl mb-2 opacity-50">👥</div>
                   <p className="text-gray-400">No followers yet</p>
                   <p className="text-gray-500 text-sm mt-1">Share your profile to get followers</p>
-                  <button 
+                  <button
                     onClick={() => navigate('/discover')}
                     className="text-purple-400 hover:text-purple-300 text-sm mt-3 transition-colors"
                   >
@@ -786,11 +667,10 @@ const fetchDashboardData = async () => {
                       <button
                         onClick={(e) => handleLike(selectedArtwork._id, e)}
                         disabled={likingArtwork === selectedArtwork._id || !user}
-                        className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all duration-300 ${
-                          selectedArtwork.hasLiked
+                        className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all duration-300 ${selectedArtwork.hasLiked
                             ? 'bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30'
                             : 'bg-white/10 text-gray-300 border border-white/20 hover:bg-white/20 hover:text-white'
-                        } ${!user ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          } ${!user ? 'opacity-50 cursor-not-allowed' : ''}`}
                       >
                         {likingArtwork === selectedArtwork._id ? (
                           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
@@ -816,7 +696,7 @@ const fetchDashboardData = async () => {
 
         {/* Refresh Button */}
         <div className="text-center mt-8">
-          <button 
+          <button
             onClick={fetchDashboardData}
             className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg transition-colors font-medium flex items-center mx-auto space-x-2"
           >

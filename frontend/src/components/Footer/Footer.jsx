@@ -20,7 +20,7 @@ const Footer = () => {
 
           {/* Copyright */}
           <p className="text-gray-500 text-xs">
-            © 2024 ArtHive
+            © 2025 ArtHive
           </p>
         </div>
       </div>

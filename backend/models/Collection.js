@@ -1,4 +1,4 @@
-// models/Collection.js
+
 import mongoose from 'mongoose';
 
 const collectionSchema = new mongoose.Schema({

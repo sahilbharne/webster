@@ -1,8 +1,8 @@
-// src/services/likeService.js
+
 import API from '../utils/api.js';
 
 export const likeService = {
-  // Like or unlike an artwork
+  
   toggleLike: async (artworkId, clerkUserId) => {
     try {
       console.log('🔄 Toggling like for artwork:', artworkId, 'user:', clerkUserId);
@@ -21,7 +21,6 @@ export const likeService = {
     }
   },
 
-  // Check if user has liked an artwork
   getLikeStatus: async (artworkId, clerkUserId) => {
     try {
       console.log('🔍 Getting like status for artwork:', artworkId, 'user:', clerkUserId);

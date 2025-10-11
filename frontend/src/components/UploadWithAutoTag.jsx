@@ -45,8 +45,7 @@ const UploadWithAutoTag = () => {
   };
 
   const handleUpload = () => {
-    // Your existing upload logic here
-    // Now you have generatedTags to send with the artwork
+    
     console.log('Uploading with tags:', generatedTags);
     setMessage('🎨 Artwork uploaded with auto-generated tags!');
   };
