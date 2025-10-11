@@ -78,7 +78,7 @@ export const uploadArtworkWithTags = async (artworkData, clerkUserId) => {
   try {
     console.log('🔄 Uploading artwork with tags...');
     
-    const response = await fetch(`${API_BASE_URL}/upload/with-tags`, {
+    const response = await fetch(`${API_BASE_URL}/upload`, {
       method: 'POST',
       body: formData,
     });

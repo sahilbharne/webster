@@ -37,7 +37,7 @@ const upload = multer({
 });
 
 // POST 
-router.post('/auto-tag', upload.single('image'), async (req, res) => {
+router.post('/with-tags', upload.single('image'), async (req, res) => {
   console.log('🎯 ========== AUTO-TAG ROUTE START ==========');
   
   let fileDeleted = false;
