@@ -1,10 +1,5 @@
 # 🎨 Arthive — AI-Powered Art Sharing Platform
 
-[![GitHub stars](https://img.shields.io/github/stars/sahilbharne/arthive?style=social)](https://github.com/sahilbharne/arthive/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/sahilbharne/arthive?style=social)](https://github.com/sahilbharne/arthive/network/members)
-[![GitHub issues](https://img.shields.io/github/issues/sahilbharne/arthive)](https://github.com/sahilbharne/arthive/issues)
-[![GitHub license](https://img.shields.io/github/license/sahilbharne/arthive)](./LICENSE)
-
 ![MERN](https://img.shields.io/badge/Stack-MERN-green?style=flat-square)
 ![Clerk](https://img.shields.io/badge/Auth-Clerk-blue?style=flat-square)
 ![Cloudinary](https://img.shields.io/badge/Media-Cloudinary-lightblue?style=flat-square)
@@ -53,26 +48,23 @@ The platform blends creativity and technology — offering personalized recommen
 
 ### 1️⃣ Clone the Repository
 ```bash
-git clone https://github.com/sahilbharne/arthive.git
+git clone https://github.com/yourusername/arthive.git
 cd arthive
-2️⃣ Install Dependencies
+```
 Backend
-
-bash
-Copy code
+```bash
 cd backend
 npm install
+```
 Frontend
-
-bash
-Copy code
+```bash
 cd ../frontend
 npm install
-3️⃣ Set up Environment Variables
-Backend (backend/.env):
+```
+Set up Environment Variables
 
-bash
-Copy code
+in backend .env
+```bash
 PORT=5000
 MONGO_URI=your_mongodb_connection_string
 CLOUDINARY_CLOUD_NAME=your_cloud_name
@@ -80,40 +72,38 @@ CLOUDINARY_API_KEY=your_api_key
 CLOUDINARY_API_SECRET=your_api_secret
 CLERK_SECRET_KEY=your_clerk_secret_key
 OPENAI_API_KEY=your_openai_api_key
-Frontend (frontend/.env):
-
-bash
-Copy code
+```
+in frontend .env
+```bash
 VITE_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key
 VITE_BACKEND_URL=http://localhost:5000
-4️⃣ Run the Application
-Start Backend
 
-bash
-Copy code
+```
+Run both frontend and backend
+```bash
 cd backend
 npm run dev
-Start Frontend
-
-bash
-Copy code
 cd ../frontend
 npm run dev
+```
+
 🧠 AI Features in Depth
 🔹 Auto Tagging
+
 When users upload artwork, the backend uses an AI model (e.g., OpenAI Vision or ML API) to detect elements and automatically generate descriptive tags.
 
 🔹 Personalized Recommendations
+
 User interactions (likes, views, follows) are analyzed to recommend similar artworks, ensuring a tailored discovery experience.
 
 🌍 Deployment
-Frontend: Vercel
 
-Backend: Render, Railway, or Vercel Functions
+  Deployed on Vercel (Frontend)
+  Backend can be hosted on Render, Railway, or Vercel Functions.
 
-📂 Folder Structure
-arduino
-Copy code
+
+Folder Structure
+```
 arthive/
 ├── backend/
 │   ├── routes/
@@ -135,20 +125,26 @@ arthive/
 │   └── vite.config.js
 │
 └── README.md
+```
+
 📅 Future Enhancements
+```
 🧾 Commenting system
 
 🏷️ Advanced filtering & search
 
 🧑‍🤝‍🧑 Artist collaborations
 
-🧑‍💻 Author
-👤 Sahil Bharne
+```
+### 🧑‍💻 Author
 
-⭐ If you like this project, don’t forget to star the repo!
+  Sahil Bharne
+  
+  ⭐ If you like this project, don't forget to star the repo on GitHub!        
 
 🪪 License
+
 This project is licensed under the MIT License — feel free to use and modify it for learning or personal projects.
 
-yaml
-Copy code
+
+
